@@ -19,6 +19,7 @@
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     player_.setVideoOutput(ui->videoWidget);
+    ui->rangeSlider_selected->SetOption(RangeSlider::DoubleHandles);
     connect(ui->pushButton_play_pause, &QPushButton::pressed, this, &MainWindow::play_pause_button_pressed);
     connect(ui->horizontalSlider_current_pos, &QSlider::valueChanged, [=](int position) {
         std::chrono::seconds new_position(position);
@@ -31,8 +32,26 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         this->update_video_position_display(new_position);
         this->change_video_position(new_position);
     });
-    connect(ui->timeEdit_start_time, &QTimeEdit::userTimeChanged, this, &MainWindow::start_time_edit_changed);
-    connect(ui->timeEdit_end_time, &QTimeEdit::userTimeChanged, this, &MainWindow::end_time_edit_changed);
+    connect(ui->timeEdit_start_time, &QTimeEdit::userTimeChanged, [=](QTime time) {
+        using namespace std::literals::chrono_literals;
+        auto new_position =
+            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(time.msecsSinceStartOfDay()));
+        this->update_start_time_slider(new_position);
+    });
+    connect(ui->timeEdit_end_time, &QTimeEdit::userTimeChanged, [=](QTime time) {
+        using namespace std::literals::chrono_literals;
+        auto new_position =
+            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(time.msecsSinceStartOfDay()));
+        this->update_end_time_slider(new_position);
+    });
+    connect(ui->rangeSlider_selected, &RangeSlider::lowerValueChanged, [=](int position) {
+        std::chrono::seconds new_position(position);
+        this->update_start_time_display(new_position);
+    });
+    connect(ui->rangeSlider_selected, &RangeSlider::upperValueChanged, [=](int position) {
+        std::chrono::seconds new_position(position);
+        this->update_end_time_display(new_position);
+    });
     connect(ui->actionopen, &QAction::triggered, this, &MainWindow::open_video);
     connect(ui->pushButton_save, &QPushButton::pressed, this, &MainWindow::save_result);
     connect(&player_, &QMediaPlayer::errorOccurred, this, &MainWindow::show_videoerror);
@@ -100,9 +119,49 @@ void MainWindow::change_video_position(std::chrono::seconds newposition) {
     }
 }
 
-void MainWindow::start_time_edit_changed(const QTime &time) {}
+void MainWindow::update_start_time_display(std::chrono::seconds time) {
+    using std::chrono::duration_cast;
+    using std::chrono::milliseconds;
+    using std::chrono::seconds;
+    auto current_position =
+        duration_cast<seconds>(milliseconds(this->ui->timeEdit_start_time->time().msecsSinceStartOfDay()));
+    if (time != current_position) {
+        ui->timeEdit_start_time->setTime(QTime::fromMSecsSinceStartOfDay(duration_cast<milliseconds>(time).count()));
+        qDebug() << fmt::format("@{} {}", __func__, time).c_str();
+    }
+}
+void MainWindow::update_start_time_slider(std::chrono::seconds time) {
+    using std::chrono::duration_cast;
+    using std::chrono::milliseconds;
+    using std::chrono::seconds;
+    auto current_position = seconds(ui->rangeSlider_selected->GetLowerValue());
+    if (time != current_position) {
+        ui->rangeSlider_selected->setLowerValue(time.count());
+        qDebug() << fmt::format("@{} {}", __func__, time).c_str();
+    }
+}
 
-void MainWindow::end_time_edit_changed(const QTime &time) {}
+void MainWindow::update_end_time_display(std::chrono::seconds time) {
+    using std::chrono::duration_cast;
+    using std::chrono::milliseconds;
+    using std::chrono::seconds;
+    auto current_position =
+        duration_cast<seconds>(milliseconds(this->ui->timeEdit_end_time->time().msecsSinceStartOfDay()));
+    if (time != current_position) {
+        ui->timeEdit_end_time->setTime(QTime::fromMSecsSinceStartOfDay(duration_cast<milliseconds>(time).count()));
+        qDebug() << fmt::format("@{} {}", __func__, time).c_str();
+    }
+}
+void MainWindow::update_end_time_slider(std::chrono::seconds time) {
+    using std::chrono::duration_cast;
+    using std::chrono::milliseconds;
+    using std::chrono::seconds;
+    auto current_position = seconds(ui->rangeSlider_selected->GetUpperValue());
+    if (time != current_position) {
+        ui->rangeSlider_selected->setUpperValue(time.count());
+        qDebug() << fmt::format("@{} {}", __func__, time).c_str();
+    }
+}
 
 void MainWindow::open_video() {
     auto videodirs = QStandardPaths::standardLocations(QStandardPaths::MoviesLocation);
@@ -120,6 +179,9 @@ void MainWindow::update_duration(int newduration) {
     seconds length = duration_cast<seconds>(milliseconds(newduration));
     if (length != 0s) {
         ui->horizontalSlider_current_pos->setMaximum(length.count());
+        ui->rangeSlider_selected->setMaximum(length.count());
+        ui->rangeSlider_selected->setLowerValue(0);
+        ui->rangeSlider_selected->setUpperValue(length.count());
     }
 }
 

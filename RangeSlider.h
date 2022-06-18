@@ -1,0 +1,1 @@
+3rdparty/Qt-RangeSlider/RangeSlider.h

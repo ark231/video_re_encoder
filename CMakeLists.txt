@@ -11,7 +11,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools MultimediaWidgets QuickWidgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools MultimediaWidgets Gui)
 
 set(TS_FILES video_cutter_ja_JP.ts)
 
@@ -20,8 +20,7 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         mainwindow.hpp
         mainwindow.ui
-        rangeslider.hpp
-        rangeslider.cpp
+        RangeSlider.cpp
         ${TS_FILES}
 )
 
@@ -45,7 +44,7 @@ endif()
 target_link_libraries(video_cutter PRIVATE 
     Qt6::Widgets
     Qt6::MultimediaWidgets
-    Qt6::QuickWidgets
+    Qt6::Gui
     fmt
     )
 

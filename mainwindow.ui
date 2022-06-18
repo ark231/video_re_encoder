@@ -73,16 +73,15 @@
          </widget>
         </item>
         <item>
-         <widget class="QSlider" name="horizontalSlider_range_start">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+         <widget class="RangeSlider" name="rangeSlider_selected" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSlider" name="horizontalSlider_range_end">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+          <property name="focusPolicy">
+           <enum>Qt::StrongFocus</enum>
           </property>
          </widget>
         </item>
@@ -236,6 +235,12 @@
    <class>QVideoWidget</class>
    <extends>QWidget</extends>
    <header location="global">QVideoWidget</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>RangeSlider</class>
+   <extends>QWidget</extends>
+   <header>RangeSlider.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

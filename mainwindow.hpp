@@ -25,9 +25,11 @@ class MainWindow : public QMainWindow {
     void update_video_position_display(std::chrono::seconds newposition);
     void update_video_position_slider(std::chrono::seconds newposition);
 
-    void start_time_edit_changed(const QTime &time);
+    void update_start_time_display(std::chrono::seconds time);
+    void update_start_time_slider(std::chrono::seconds time);
 
-    void end_time_edit_changed(const QTime &time);
+    void update_end_time_display(std::chrono::seconds time);
+    void update_end_time_slider(std::chrono::seconds time);
 
     void open_video();
 
