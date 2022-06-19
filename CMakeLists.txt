@@ -21,6 +21,10 @@ set(PROJECT_SOURCES
         mainwindow.hpp
         mainwindow.ui
         RangeSlider.cpp
+        RangeSlider.h
+        processwidget.hpp
+        processwidget.cpp
+        processwidget.ui
         ${TS_FILES}
 )
 

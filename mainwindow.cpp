@@ -6,30 +6,36 @@
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFontMetricsF>
+#include <QInputDialog>
 #include <QMediaMetaData>
 #include <QMessageBox>
+#include <QProcess>
 #include <QStandardPaths>
+#include <QStringList>
 #include <QUrl>
 #include <chrono>
 
 #include "./ui_mainwindow.h"
+#include "processwidget.hpp"
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     player_.setVideoOutput(ui->videoWidget);
     ui->rangeSlider_selected->SetOption(RangeSlider::DoubleHandles);
+    ui->pushButton_save->setEnabled(false);
     connect(ui->pushButton_play_pause, &QPushButton::pressed, this, &MainWindow::play_pause_button_pressed);
     connect(ui->horizontalSlider_current_pos, &QSlider::valueChanged, [=](int position) {
         std::chrono::seconds new_position(position);
-        this->update_video_position_slider(new_position);
+        this->update_video_position_display(new_position);
         this->change_video_position(new_position);
     });
     connect(ui->timeEdit_current_time, &QTimeEdit::userTimeChanged, [=](QTime time) {
         auto new_position =
             std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(time.msecsSinceStartOfDay()));
-        this->update_video_position_display(new_position);
+        this->update_video_position_slider(new_position);
         this->change_video_position(new_position);
     });
     connect(ui->timeEdit_start_time, &QTimeEdit::userTimeChanged, [=](QTime time) {
@@ -170,6 +176,7 @@ void MainWindow::open_video() {
     auto fileurl = QFileDialog::getOpenFileUrl(this, tr("open video file"),
                                                QUrl(videodirs.isEmpty() ? QUrl() : QUrl(videodirs[0])));
     player_.setSource(fileurl);
+    ui->pushButton_save->setEnabled(true);
 }
 void MainWindow::update_duration(int newduration) {
     using std::chrono::duration_cast;
@@ -188,9 +195,65 @@ void MainWindow::update_duration(int newduration) {
 void MainWindow::show_videoerror(QMediaPlayer::Error, const QString &error_string) {
     QMessageBox::critical(this, tr("Error!"), error_string);
     player_.setSource(QUrl());
+    ui->pushButton_save->setEnabled(false);
 }
 
-void MainWindow::save_result() {}
+void MainWindow::save_result() {
+    auto source_filename = player_.source().fileName();
+    bool confirmed = false;
+    QString save_filename;
+    auto source_filepath = player_.source().path();
+    QString save_filepath;
+    bool overwrite = false;
+    do {
+        save_filename = QInputDialog::getText(this, tr("savefile name"), tr("enter file name of result"),
+                                              QLineEdit::Normal, source_filename, &confirmed);
+        save_filepath = QUrl(player_.source().toString(QUrl::RemoveFilename) + save_filename).path();
+        if (not confirmed) {
+            return;
+        }
+        if (save_filename.isEmpty()) {
+            auto button = QMessageBox::warning(this, tr("empty filename"), tr("filename cannot be empty"),
+                                               QMessageBox::Retry | QMessageBox::Abort, QMessageBox::Retry);
+            if (button == QMessageBox::Abort) {
+                return;
+            }
+        } else if (save_filename == source_filename || QFile::exists(save_filepath)) {
+            auto button =
+                QMessageBox::warning(this, tr("overwrite source"),
+                                     tr("provided filename already exists. Are you sure you want to OVERWRITE it?"),
+                                     QMessageBox::Retry | QMessageBox::Abort | QMessageBox::Yes, QMessageBox::Retry);
+            switch (button) {
+                case QMessageBox::Retry:
+                    save_filename = "";
+                    break;
+                case QMessageBox::Abort:
+                    return;
+                case QMessageBox::Yes:
+                    overwrite = true;
+                    break;
+                default:
+                    Q_UNREACHABLE();
+            }
+        } else {
+            break;
+        }
+    } while (save_filename.isEmpty());
+    using std::chrono::seconds;
+    seconds range_start(ui->rangeSlider_selected->GetLowerValue());
+    seconds range_end(ui->rangeSlider_selected->GetUpperValue());
+    QStringList arguments{"-ss",        QString::number(range_start.count()),
+                          "-to",        QString::number(range_end.count()),
+                          "-i",         source_filepath,
+                          "-c",         "copy",
+                          save_filepath};
+    ProcessWidget *ffmpeg_window = new ProcessWidget(this, Qt::Window);
+    ffmpeg_window->setWindowModality(Qt::ApplicationModal);
+    ffmpeg_window->setAttribute(Qt::WA_DeleteOnClose, true);
+    ffmpeg_window->show();
+    ffmpeg_window->start("ffmpeg", arguments);
+}
+
 void MainWindow::change_curent_time_slider_tracking_state(bool state) {
     ui->horizontalSlider_current_pos->setTracking(state);
 }
