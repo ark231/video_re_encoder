@@ -202,13 +202,13 @@ void MainWindow::save_result() {
     auto source_filename = player_.source().fileName();
     bool confirmed = false;
     QString save_filename;
-    auto source_filepath = player_.source().path();
+    auto source_filepath = player_.source().toLocalFile();
     QString save_filepath;
     bool overwrite = false;
     do {
         save_filename = QInputDialog::getText(this, tr("savefile name"), tr("enter file name of result"),
                                               QLineEdit::Normal, source_filename, &confirmed);
-        save_filepath = QUrl(player_.source().toString(QUrl::RemoveFilename) + save_filename).path();
+        save_filepath = QUrl(player_.source().toString(QUrl::RemoveFilename) + save_filename).toLocalFile();
         if (not confirmed) {
             return;
         }
