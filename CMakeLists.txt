@@ -15,17 +15,17 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools MultimediaWidgets Gui
 
 set(TS_FILES video_cutter_ja_JP.ts)
 
+add_subdirectory(3rdparty)
+
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.hpp
-        mainwindow.ui
-        RangeSlider.cpp
-        RangeSlider.h
-        processwidget.hpp
-        processwidget.cpp
-        processwidget.ui
-        ${TS_FILES}
+    main.cpp
+    mainwindow.cpp
+    mainwindow.hpp
+    mainwindow.ui
+    processwidget.hpp
+    processwidget.cpp
+    processwidget.ui
+    ${TS_FILES}
 )
 
 qt_add_executable(video_cutter
@@ -36,24 +36,30 @@ qt_add_executable(video_cutter
 qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
 
 find_package(fmt QUIET)
+
 if(NOT ${fmt_FOUND})
     include(cmake/CPM.cmake)
     CPMAddPackage(
         NAME fmt
         GITHUB_REPOSITORY fmtlib/fmt
         GIT_TAG 8.1.1
-        )
+    )
 endif()
 
-target_link_libraries(video_cutter PRIVATE 
+target_link_libraries(video_cutter PRIVATE
     Qt6::Widgets
     Qt6::MultimediaWidgets
     Qt6::Gui
     fmt
-    )
+    RangeSlider
+)
+
+target_include_directories(video_cutter PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/Qt-RangeSlider
+)
 
 target_compile_definitions(video_cutter PRIVATE $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT$<SEMICOLON>QT_NO_DEBUG>)
-target_compile_options(video_cutter PRIVATE 
+target_compile_options(video_cutter PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-Wall -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic>
     $<$<CXX_COMPILER_ID:GNU>:-pedantic -Wall -Wextra -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Winit-self -Wlogical-op -Wmissing-declarations -Wmissing-include-dirs -Wnoexcept -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=2 -Wswitch-default -Wundef -Wno-unused -Wunsafe-loop-optimizations -Wfloat-equal>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>
@@ -67,6 +73,4 @@ set_target_properties(video_cutter PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
-if(QT_VERSION_MAJOR EQUAL 6)
-    qt_finalize_executable(video_cutter)
-endif()
+qt_finalize_executable(video_cutter)
