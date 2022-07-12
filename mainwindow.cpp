@@ -24,6 +24,7 @@
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     player_.setVideoOutput(ui->videoWidget);
+    player_.setAudioOutput(&audio_output_);
     ui->rangeSlider_selected->SetOption(RangeSlider::DoubleHandles);
     ui->pushButton_save->setEnabled(false);
     connect(ui->pushButton_play_pause, &QPushButton::pressed, this, &MainWindow::play_pause_button_pressed);

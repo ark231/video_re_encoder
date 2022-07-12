@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <QAudioOutput>
 #include <QMainWindow>
 #include <QMediaPlayer>
 #include <chrono>
@@ -44,5 +45,6 @@ class MainWindow : public QMainWindow {
    private:
     Ui::MainWindow *ui;  // NOLINT(readability-identifier-naming)
     QMediaPlayer player_;
+    QAudioOutput audio_output_;
 };
 #endif  // MAINWINDOW_H
