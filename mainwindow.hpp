@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QMainWindow>
 #include <QMediaPlayer>
+#include <QSettings>
 #include <QUrl>
 #include <chrono>
 #include <optional>
@@ -31,9 +32,12 @@ class MainWindow : public QMainWindow {
 
     void save_result_();
 
+    void select_default_chaptername_plugin_();
+
    private:
     Ui::MainWindow *ui_;
     ProcessWidget *process_ = nullptr;
+    QSettings *settings_ = nullptr;
     QVector<std::tuple<QString, double, QString>> filename_duration_chaptername_tuples_;
     std::tuple<QString, double, QString> current_filename_duration_chaptername_tuple_;
     std::optional<QString> chaptername_plugin_ = std::nullopt;
@@ -43,6 +47,8 @@ class MainWindow : public QMainWindow {
 
     QDir chaptername_plugins_dir_();
     QStringList search_chapternames_plugins_();
+    QStringList chapternames_plugins_();
+    int default_chapternames_plugin_index_();
     void start_saving_(QUrl result_path, QString plugin);
     void probe_for_duration_();
     void register_duration_();

@@ -34,6 +34,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     ui_->pushButton_save->setEnabled(false);
     connect(ui_->actionopen, &QAction::triggered, this, &MainWindow::open_video_);
     connect(ui_->pushButton_save, &QPushButton::pressed, this, &MainWindow::save_result_);
+    connect(ui_->actiondefault_extractor, &QAction::triggered, this, &MainWindow::select_default_chaptername_plugin_);
+    QDir settings_dir(QApplication::applicationDirPath() + "/settings");
+    if (QDir().mkpath(settings_dir.absolutePath())) {  // QDir::mkpath() returns true even when path already exists
+        settings_ = new QSettings(settings_dir.filePath("settings.ini"), QSettings::IniFormat);
+    }
 }
 
 MainWindow::~MainWindow() { delete ui_; }
@@ -140,7 +145,7 @@ void MainWindow::start_saving_(QUrl result_path, QString plugin) {
     if (plugin == NO_PLUGIN) {
         chaptername_plugin_ = std::nullopt;
     } else {
-        chaptername_plugin_ = QApplication::applicationDirPath() + "/plugins/chapternames/" + plugin;
+        chaptername_plugin_ = chaptername_plugins_dir_().absoluteFilePath(plugin);
     }
     probe_for_duration_();
 }
@@ -186,12 +191,12 @@ void MainWindow::save_result_() {
         }
     } while (save_filename.isEmpty());
 
-    QDir plugin_dir(QApplication::applicationDirPath() + "/plugins/chapternames");
+    QDir plugin_dir = chaptername_plugins_dir_();
     QString plugin = NO_PLUGIN;
     if (plugin_dir.exists()) {
         plugin = QInputDialog::getItem(
             this, tr("select plugin"), tr("chapter name plugins are found. Select one you want to use."),
-            QStringList{NO_PLUGIN} + plugin_dir.entryList({"*.py"}, QDir::Files), 0, false, &confirmed);
+            chapternames_plugins_(), default_chapternames_plugin_index_(), false, &confirmed);
         if (not confirmed) {
             return;
         }
@@ -199,9 +204,27 @@ void MainWindow::save_result_() {
 
     start_saving_(save_filepath, plugin);
 }
+int MainWindow::default_chapternames_plugin_index_() {
+    int result = 0;
+    if (settings_->contains("default_chaptername_plugin")) {
+        int raw_idx = chapternames_plugins_().indexOf(settings_->value("default_chaptername_plugin"));
+        result = qMax(raw_idx, 0);
+    }
+    return result;
+}
 QDir MainWindow::chaptername_plugins_dir_() {
     return QDir(QApplication::applicationDirPath() + "/plugins/chapternames");
 }
 QStringList MainWindow::search_chapternames_plugins_() {
     return chaptername_plugins_dir_().entryList({"*.py"}, QDir::Files);
+}
+QStringList MainWindow::chapternames_plugins_() { return QStringList{NO_PLUGIN} + search_chapternames_plugins_(); }
+void MainWindow::select_default_chaptername_plugin_() {
+    QString plugin = NO_PLUGIN;
+    bool confirmed;
+    plugin = QInputDialog::getItem(this, tr("select plugin"), tr("Select default chapter name plugin."),
+                                   chapternames_plugins_(), default_chapternames_plugin_index_(), false, &confirmed);
+    if (confirmed && settings_ != nullptr) {
+        settings_->setValue("default_chaptername_plugin", plugin);
+    }
 }
