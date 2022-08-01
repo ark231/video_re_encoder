@@ -77,7 +77,12 @@ void MainWindow::register_duration() {
 void MainWindow::create_chaptername() {
     QString filename = QUrl::fromLocalFile(ui->listWidget_filenames->item(current_index_)->text()).fileName();
     if (chaptername_plugin_.has_value()) {
-        process_->start(chaptername_plugin_.value(), {filename}, false);
+#ifdef _WIN32
+        constexpr auto PYTHON = "py";
+#else
+        constexpr auto PYTHON = "python";
+#endif
+        process_->start(PYTHON, {chaptername_plugin_.value(), filename}, false);
         connect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_chaptername);
     } else {
         std::get<2>(current_filename_duration_chaptername_tuple_) = filename;
@@ -86,7 +91,8 @@ void MainWindow::create_chaptername() {
 }
 void MainWindow::register_chaptername() {
     if (chaptername_plugin_.has_value()) {
-        std::get<2>(current_filename_duration_chaptername_tuple_) = process_->get_stdout();
+        std::get<2>(current_filename_duration_chaptername_tuple_) = process_->get_stdout().remove('\n');
+        process_->clear_stdout();
         disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_chaptername);
     }
     filename_duration_chaptername_tuples_.push_back(current_filename_duration_chaptername_tuple_);
@@ -117,12 +123,12 @@ void MainWindow::confirm_chaptername() {
 void MainWindow::concatenate_videos() {
     std::string test_str = "";
     for (const auto &[filename, duration, chaptername] : filename_duration_chaptername_tuples_) {
-        test_str += fmt::format("{}:{}:{}\n", filename.toStdString(), duration, chaptername.toStdString());
+        test_str += fmt::format("'{}' : '{}' : '{}'\n", filename.toStdString(), duration, chaptername.toStdString());
     }
     QMessageBox::information(this, tr("test"), QString::fromStdString(test_str));
 }
 void MainWindow::add_chapters() {}
-void MainWindow::start_saving(QUrl result_path) {
+void MainWindow::start_saving(QUrl result_path, QString plugin) {
     process_ = new ProcessWidget(this, Qt::Window);
     process_->setWindowModality(Qt::WindowModal);
     process_->setAttribute(Qt::WA_DeleteOnClose, true);
@@ -131,6 +137,11 @@ void MainWindow::start_saving(QUrl result_path) {
     filename_duration_chaptername_tuples_.clear();
     current_index_ = 0;
     result_path_ = result_path;
+    if (plugin == NO_PLUGIN) {
+        chaptername_plugin_ = std::nullopt;
+    } else {
+        chaptername_plugin_ = QApplication::applicationDirPath() + "/plugins/chapternames/" + plugin;
+    }
     probe_for_duration();
 }
 void MainWindow::save_result() {
@@ -175,5 +186,16 @@ void MainWindow::save_result() {
         }
     } while (save_filename.isEmpty());
 
-    start_saving(save_filepath);
+    QDir plugin_dir(QApplication::applicationDirPath() + "/plugins/chapternames");
+    QString plugin = NO_PLUGIN;
+    if (plugin_dir.exists()) {
+        plugin = QInputDialog::getItem(
+            this, tr("select plugin"), tr("chapter name plugins are found. Select one you want to use."),
+            QStringList{NO_PLUGIN} + plugin_dir.entryList({"*.py"}, QDir::Files), 0, false, &confirmed);
+        if (not confirmed) {
+            return;
+        }
+    }
+
+    start_saving(save_filepath, plugin);
 }

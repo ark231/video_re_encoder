@@ -82,13 +82,13 @@ QStringList ProcessWidget::arguments() { return process_.arguments(); };
 void ProcessWidget::update_stdout() {
     process_.setReadChannel(QProcess::StandardOutput);
     while (process_.canReadLine()) {
-        ui->textEdit_stdout->append(QString(process_.readLine(0xffffffff)).remove('\n'));
+        ui->textEdit_stdout->append(QString::fromLocal8Bit(process_.readLine(0xffffffff)).remove('\n'));
     }
 }
 void ProcessWidget::update_stderr() {
     process_.setReadChannel(QProcess::StandardError);
     while (process_.canReadLine()) {
-        ui->textEdit_stderr->append(QString(process_.readLine(0xffffffff)).remove('\n'));
+        ui->textEdit_stderr->append(QString::fromLocal8Bit(process_.readLine(0xffffffff)).remove('\n'));
     }
 }
 void ProcessWidget::kill_process() {

@@ -36,9 +36,10 @@ class MainWindow : public QMainWindow {
     QVector<std::tuple<QString, double, QString>> filename_duration_chaptername_tuples_;
     std::tuple<QString, double, QString> current_filename_duration_chaptername_tuple_;
     std::optional<QString> chaptername_plugin_ = std::nullopt;
+    static constexpr auto NO_PLUGIN = "do not use any plugins";
     QUrl result_path_;
     int current_index_ = 0;
-    void start_saving(QUrl result_path);
+    void start_saving(QUrl result_path, QString plugin);
     void probe_for_duration();
     void register_duration();
     void create_chaptername();
