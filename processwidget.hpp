@@ -61,7 +61,7 @@ class ProcessWidget : public QWidget {
     void finished_failure();
 
    private:
-    Ui::ProcessWidget *ui;  // NOLINT(readability-identifier-naming)
+    Ui::ProcessWidget *ui_;
     QThread thread_;
     QProcess process_;
     bool is_first_ = true;
@@ -69,14 +69,14 @@ class ProcessWidget : public QWidget {
     void start_process(const QString &command, const QStringList &arguments, QIODeviceBase::OpenMode);
     void sigkill();
    private slots:
-    void update_label_on_start();
-    void update_label_on_finish(int exit_code, QProcess::ExitStatus exit_status);
-    void update_stdout();
-    void update_stderr();
-    void kill_process();
-    void enable_closing();
-    void do_close();
-    void show_error(QProcess::ProcessError error);
+    void update_label_on_start_();
+    void update_label_on_finish_(int exit_code, QProcess::ExitStatus exit_status);
+    void update_stdout_();
+    void update_stderr_();
+    void kill_process_();
+    void enable_closing_();
+    void do_close_();
+    void show_error_(QProcess::ProcessError error);
 };
 
 #endif  // PROCESSWIDGET_HPP

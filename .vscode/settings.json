@@ -1,0 +1,12 @@
+{
+    "cSpell.words": [
+        "ffprobe"
+    ],
+    "files.associations": {
+        "*.md": "markdown",
+        "chrono": "cpp",
+        "filesystem": "cpp",
+        "optional": "cpp",
+        "xlocmes": "cpp"
+    }
+}

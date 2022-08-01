@@ -13,6 +13,10 @@ CheckOptions:
     value:           _
   - key:             readability-identifier-naming.ProtectedMemberSuffix
     value:           _
+  - key:             readability-identifier-naming.PrivateMethodSuffix
+    value:           _
+  - key:             readability-identifier-naming.ProtectedMethodSuffix
+    value:           _
   - key:             readability-identifier-naming.ParameterCase
     value:           lower_case
   - key:             readability-identifier-naming.VariableCase

@@ -5,22 +5,22 @@
 #include <QStringList>
 
 namespace Ui {
-class listDialog;
+class ListDialog;
 }
 
-class listDialog : public QDialog {
+class ListDialog : public QDialog {
     Q_OBJECT
 
    public:
-    explicit listDialog(QWidget *parent = nullptr);
-    ~listDialog();
+    explicit ListDialog(QWidget *parent = nullptr);
+    ~ListDialog();
 
     static QStringList get_texts(QWidget *parent, const QString &title, const QString &label, const QStringList &texts,
                                  bool *ok = nullptr, Qt::WindowFlags flags = Qt::WindowFlags(),
-                                 Qt::InputMethodHints inputMethodHints = Qt::ImhNone);
+                                 Qt::InputMethodHints input_method_hints = Qt::ImhNone);
 
    private:
-    Ui::listDialog *ui;
+    Ui::ListDialog *ui_;
 };
 
 #endif  // LISTDIALOG_H

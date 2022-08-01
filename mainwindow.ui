@@ -23,9 +23,9 @@
       <item>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
-         <widget class="QPushButton" name="pushButton_reset">
+         <widget class="QPushButton" name="pushButton_clear">
           <property name="text">
-           <string>reset</string>
+           <string>clear</string>
           </property>
          </widget>
         </item>
@@ -103,5 +103,22 @@
   </action>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>pushButton_clear</sender>
+   <signal>clicked()</signal>
+   <receiver>listWidget_filenames</receiver>
+   <slot>clear()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>395</x>
+     <y>44</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>395</x>
+     <y>296</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
