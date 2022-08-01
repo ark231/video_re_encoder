@@ -21,144 +21,24 @@
     <item row="0" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
-       <layout class="QVBoxLayout" name="verticalLayout_5">
-        <item>
-         <widget class="QVideoWidget" name="videoWidget" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="pushButton_play_pause">
-          <property name="text">
-           <string>play</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QTimeEdit" name="timeEdit_current_time">
-          <property name="currentSection">
-           <enum>QDateTimeEdit::HourSection</enum>
-          </property>
-          <property name="displayFormat">
-           <string>H:mm:ss</string>
-          </property>
-          <property name="time">
-           <time>
-            <hour>0</hour>
-            <minute>0</minute>
-            <second>0</second>
-           </time>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSlider" name="horizontalSlider_current_pos">
-          <property name="styleSheet">
-           <string notr="true"/>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="tickPosition">
-           <enum>QSlider::TicksAbove</enum>
-          </property>
-          <property name="tickInterval">
-           <number>1</number>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="RangeSlider" name="rangeSlider_selected" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="focusPolicy">
-           <enum>Qt::StrongFocus</enum>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
-         <spacer name="verticalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QLabel" name="label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
+         <widget class="QPushButton" name="pushButton_reset">
           <property name="text">
-           <string>start time</string>
+           <string>reset</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QTimeEdit" name="timeEdit_start_time">
-          <property name="currentSection">
-           <enum>QDateTimeEdit::HourSection</enum>
+         <widget class="QListWidget" name="listWidget_filenames">
+          <property name="dragEnabled">
+           <bool>true</bool>
           </property>
-          <property name="displayFormat">
-           <string>H:mm:ss</string>
+          <property name="dragDropMode">
+           <enum>QAbstractItemView::InternalMove</enum>
           </property>
-          <property name="time">
-           <time>
-            <hour>0</hour>
-            <minute>0</minute>
-            <second>0</second>
-           </time>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>end time</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QTimeEdit" name="timeEdit_end_time">
-          <property name="currentSection">
-           <enum>QDateTimeEdit::HourSection</enum>
-          </property>
-          <property name="displayFormat">
-           <string>H:mm:ss</string>
-          </property>
-          <property name="time">
-           <time>
-            <hour>0</hour>
-            <minute>0</minute>
-            <second>0</second>
-           </time>
+          <property name="movement">
+           <enum>QListView::Snap</enum>
           </property>
          </widget>
         </item>
@@ -168,19 +48,6 @@
            <string>save</string>
           </property>
          </widget>
-        </item>
-        <item>
-         <spacer name="verticalSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </item>
@@ -194,7 +61,7 @@
      <x>0</x>
      <y>0</y>
      <width>791</width>
-     <height>23</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
@@ -207,7 +74,7 @@
     <property name="title">
      <string>settings</string>
     </property>
-    <addaction name="actionenable_tracking_of_current_time_slider"/>
+    <addaction name="actiondefault_extractor"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menusettings"/>
@@ -229,21 +96,12 @@
     <string>enable tracking of current time slider</string>
    </property>
   </action>
+  <action name="actiondefault_extractor">
+   <property name="text">
+    <string>default extractor</string>
+   </property>
+  </action>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>QVideoWidget</class>
-   <extends>QWidget</extends>
-   <header location="global">QVideoWidget</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>RangeSlider</class>
-   <extends>QWidget</extends>
-   <header>RangeSlider.h</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>

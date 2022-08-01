@@ -2,214 +2,149 @@
 
 #include <fmt/chrono.h>
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 
 #include <QApplication>
+#include <QDataStream>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
-#include <QFontMetricsF>
+#include <QHBoxLayout>
 #include <QInputDialog>
-#include <QMediaMetaData>
+#include <QLabel>
+#include <QListWidget>
 #include <QMessageBox>
-#include <QProcess>
+#include <QPair>
+#include <QPushButton>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QUrl>
+#include <QVBoxLayout>
+#include <QVector>
 #include <chrono>
+#include <ciso646>
 
 #include "./ui_mainwindow.h"
+#include "listdialog.hpp"
 #include "processwidget.hpp"
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
-    player_.setVideoOutput(ui->videoWidget);
-    player_.setAudioOutput(&audio_output_);
-    ui->rangeSlider_selected->SetOption(RangeSlider::DoubleHandles);
     ui->pushButton_save->setEnabled(false);
-    connect(ui->pushButton_play_pause, &QPushButton::pressed, this, &MainWindow::play_pause_button_pressed);
-    connect(ui->horizontalSlider_current_pos, &QSlider::valueChanged, [=](int position) {
-        std::chrono::seconds new_position(position);
-        this->update_video_position_display(new_position);
-        this->change_video_position(new_position);
-    });
-    connect(ui->timeEdit_current_time, &QTimeEdit::userTimeChanged, [=](QTime time) {
-        auto new_position =
-            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(time.msecsSinceStartOfDay()));
-        this->update_video_position_slider(new_position);
-        this->change_video_position(new_position);
-    });
-    connect(ui->timeEdit_start_time, &QTimeEdit::userTimeChanged, [=](QTime time) {
-        using namespace std::literals::chrono_literals;
-        auto new_position =
-            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(time.msecsSinceStartOfDay()));
-        this->update_start_time_slider(new_position);
-    });
-    connect(ui->timeEdit_end_time, &QTimeEdit::userTimeChanged, [=](QTime time) {
-        using namespace std::literals::chrono_literals;
-        auto new_position =
-            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(time.msecsSinceStartOfDay()));
-        this->update_end_time_slider(new_position);
-    });
-    connect(ui->rangeSlider_selected, &RangeSlider::lowerValueChanged, [=](int position) {
-        std::chrono::seconds new_position(position);
-        this->update_start_time_display(new_position);
-    });
-    connect(ui->rangeSlider_selected, &RangeSlider::upperValueChanged, [=](int position) {
-        std::chrono::seconds new_position(position);
-        this->update_end_time_display(new_position);
-    });
     connect(ui->actionopen, &QAction::triggered, this, &MainWindow::open_video);
     connect(ui->pushButton_save, &QPushButton::pressed, this, &MainWindow::save_result);
-    connect(&player_, &QMediaPlayer::errorOccurred, this, &MainWindow::show_videoerror);
-    connect(&player_, &QMediaPlayer::durationChanged, this, &MainWindow::update_duration);
-    connect(&player_, &QMediaPlayer::positionChanged, [=](qint64 position) {
-        if (ui->horizontalSlider_current_pos->isSliderDown()) {
-            return;
-        }
-        using std::chrono::duration_cast;
-        using std::chrono::milliseconds;
-        using std::chrono::seconds;
-        auto new_position = duration_cast<seconds>(milliseconds(position));
-        auto current_position = seconds(this->ui->horizontalSlider_current_pos->value());
-        if (new_position != current_position) {
-            this->update_video_position_display(new_position);
-            this->update_video_position_slider(new_position);
-        }
-    });
-    connect(ui->actionenable_tracking_of_current_time_slider, &QAction::triggered, this,
-            &MainWindow::change_curent_time_slider_tracking_state);
 }
 
 MainWindow::~MainWindow() { delete ui; }
 
-void MainWindow::play_pause_button_pressed() {
-    if (ui->pushButton_play_pause->text() == tr("play")) {
-        player_.play();
-        ui->pushButton_play_pause->setText(tr("pause"));
-    } else {
-        player_.pause();
-        ui->pushButton_play_pause->setText(tr("play"));
-    }
-}
-
-void MainWindow::update_video_position_display(std::chrono::seconds newposition) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::seconds;
-    auto current_position =
-        duration_cast<seconds>(milliseconds(this->ui->timeEdit_current_time->time().msecsSinceStartOfDay()));
-    if (newposition != current_position) {
-        ui->timeEdit_current_time->setTime(
-            QTime::fromMSecsSinceStartOfDay(duration_cast<milliseconds>(newposition).count()));
-        qDebug() << fmt::format("@{} {}", __func__, newposition).c_str();
-    }
-}
-void MainWindow::update_video_position_slider(std::chrono::seconds newposition) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::seconds;
-    auto current_position = seconds(ui->horizontalSlider_current_pos->value());
-    if (newposition != current_position) {
-        ui->horizontalSlider_current_pos->setValue(newposition.count());
-        qDebug() << fmt::format("@{} {}", __func__, newposition).c_str();
-    }
-}
-void MainWindow::change_video_position(std::chrono::seconds newposition) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::seconds;
-    auto current_position = duration_cast<seconds>(milliseconds(player_.position()));
-    if (newposition != current_position) {
-        player_.setPosition(duration_cast<milliseconds>(newposition).count());
-        qDebug() << fmt::format("@{} {}", __func__, newposition).c_str();
-    }
-}
-
-void MainWindow::update_start_time_display(std::chrono::seconds time) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::seconds;
-    auto current_position =
-        duration_cast<seconds>(milliseconds(this->ui->timeEdit_start_time->time().msecsSinceStartOfDay()));
-    if (time != current_position) {
-        ui->timeEdit_start_time->setTime(QTime::fromMSecsSinceStartOfDay(duration_cast<milliseconds>(time).count()));
-        qDebug() << fmt::format("@{} {}", __func__, time).c_str();
-    }
-}
-void MainWindow::update_start_time_slider(std::chrono::seconds time) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::seconds;
-    auto current_position = seconds(ui->rangeSlider_selected->GetLowerValue());
-    if (time != current_position) {
-        ui->rangeSlider_selected->setLowerValue(time.count());
-        qDebug() << fmt::format("@{} {}", __func__, time).c_str();
-    }
-}
-
-void MainWindow::update_end_time_display(std::chrono::seconds time) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::seconds;
-    auto current_position =
-        duration_cast<seconds>(milliseconds(this->ui->timeEdit_end_time->time().msecsSinceStartOfDay()));
-    if (time != current_position) {
-        ui->timeEdit_end_time->setTime(QTime::fromMSecsSinceStartOfDay(duration_cast<milliseconds>(time).count()));
-        qDebug() << fmt::format("@{} {}", __func__, time).c_str();
-    }
-}
-void MainWindow::update_end_time_slider(std::chrono::seconds time) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::seconds;
-    auto current_position = seconds(ui->rangeSlider_selected->GetUpperValue());
-    if (time != current_position) {
-        ui->rangeSlider_selected->setUpperValue(time.count());
-        qDebug() << fmt::format("@{} {}", __func__, time).c_str();
-    }
-}
-
 void MainWindow::open_video() {
     auto videodirs = QStandardPaths::standardLocations(QStandardPaths::MoviesLocation);
-    qDebug() << videodirs;
-    qDebug() << QUrl(videodirs.isEmpty() ? QUrl() : QUrl(QDir(videodirs[0]).path()));
-    auto fileurl = QFileDialog::getOpenFileUrl(this, tr("open video file"),
-                                               QUrl(videodirs.isEmpty() ? QUrl() : QUrl(videodirs[0])));
-    player_.setSource(fileurl);
+    auto filenames = QFileDialog::getOpenFileNames(this, tr("open video file"), videodirs.isEmpty() ? "" : videodirs[0],
+                                                   tr("Videos (*.mp4)"));
+    ui->listWidget_filenames->addItems(filenames);
     ui->pushButton_save->setEnabled(true);
 }
-void MainWindow::update_duration(int newduration) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::seconds;
-    using namespace std::literals::chrono_literals;
-    seconds length = duration_cast<seconds>(milliseconds(newduration));
-    if (length != 0s) {
-        ui->horizontalSlider_current_pos->setMaximum(length.count());
-        ui->rangeSlider_selected->setMaximum(length.count());
-        ui->rangeSlider_selected->setLowerValue(0);
-        ui->rangeSlider_selected->setUpperValue(length.count());
+
+void MainWindow::probe_for_duration() {
+    QStringList ffprobe_arguments{"-hide_banner", "-show_entries", "format=duration", "-of", "compact", "-v", "quiet"};
+    QString filename = ui->listWidget_filenames->item(current_index_)->text();
+    process_->start("ffprobe", ffprobe_arguments + QStringList{filename}, false);
+    connect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_duration);
+}
+void MainWindow::register_duration() {
+    QString filename = ui->listWidget_filenames->item(current_index_)->text();
+    QRegularExpression ffprobe_extractor(R"(format\|duration=([0-9.]+))");
+    auto match = ffprobe_extractor.match(process_->get_stdout());
+    process_->clear_stdout();
+    if (not match.hasMatch()) {
+        QMessageBox::critical(
+            this, tr("ffprobe parse error"),
+            tr("failed to parse result of ffprobe\narguments:%1").arg(process_->arguments().join(" ")));
+        return;
+    }
+    bool ok;
+    double duration = match.captured(1).toDouble(&ok);
+    if (not ok) {
+        QMessageBox::critical(this, tr("ffprobe parse error"),
+                              tr("failed to parse duration [%1]").arg(match.captured(1)));
+        return;
+    }
+    current_filename_duration_chaptername_tuple_ = {filename, duration, ""};
+    disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_duration);
+    create_chaptername();
+}
+void MainWindow::create_chaptername() {
+    QString filename = QUrl::fromLocalFile(ui->listWidget_filenames->item(current_index_)->text()).fileName();
+    if (chaptername_plugin_.has_value()) {
+        process_->start(chaptername_plugin_.value(), {filename}, false);
+        connect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_chaptername);
+    } else {
+        std::get<2>(current_filename_duration_chaptername_tuple_) = filename;
+        register_chaptername();
     }
 }
-
-void MainWindow::show_videoerror(QMediaPlayer::Error, const QString &error_string) {
-    QMessageBox::critical(this, tr("Error!"), error_string);
-    player_.setSource(QUrl());
-    ui->pushButton_save->setEnabled(false);
+void MainWindow::register_chaptername() {
+    if (chaptername_plugin_.has_value()) {
+        std::get<2>(current_filename_duration_chaptername_tuple_) = process_->get_stdout();
+        disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_chaptername);
+    }
+    filename_duration_chaptername_tuples_.push_back(current_filename_duration_chaptername_tuple_);
+    if (current_index_ == ui->listWidget_filenames->count() - 1) {
+        confirm_chaptername();
+    } else {
+        current_index_++;
+        probe_for_duration();
+    }
 }
+void MainWindow::confirm_chaptername() {
+    bool confirmed;
+    QStringList created_chapternames;
+    for (const auto &[filename, duration, chaptername] : filename_duration_chaptername_tuples_) {
+        created_chapternames << chaptername;
+    }
+    QStringList confirmed_chapternames =
+        listDialog::get_texts(nullptr, tr("confirm chapternames"),
+                              tr("Chapter names of result video will be texts below.The texts are editable."),
+                              created_chapternames, &confirmed);
+    if (confirmed) {
+        for (int i = 0; i < filename_duration_chaptername_tuples_.size(); i++) {
+            std::get<2>(filename_duration_chaptername_tuples_[i]) = confirmed_chapternames[i];
+        }
+        concatenate_videos();
+    }
+}
+void MainWindow::concatenate_videos() {
+    std::string test_str = "";
+    for (const auto &[filename, duration, chaptername] : filename_duration_chaptername_tuples_) {
+        test_str += fmt::format("{}:{}:{}\n", filename.toStdString(), duration, chaptername.toStdString());
+    }
+    QMessageBox::information(this, tr("test"), QString::fromStdString(test_str));
+}
+void MainWindow::add_chapters() {}
+void MainWindow::start_saving(QUrl result_path) {
+    process_ = new ProcessWidget(this, Qt::Window);
+    process_->setWindowModality(Qt::WindowModal);
+    process_->setAttribute(Qt::WA_DeleteOnClose, true);
+    process_->show();
 
+    filename_duration_chaptername_tuples_.clear();
+    current_index_ = 0;
+    result_path_ = result_path;
+    probe_for_duration();
+}
 void MainWindow::save_result() {
-    auto source_filename = player_.source().fileName();
+    if (ui->listWidget_filenames->count() == 0) {
+        return;
+    }
+    auto source_filepath = QUrl::fromLocalFile(ui->listWidget_filenames->item(0)->text());
     bool confirmed = false;
     QString save_filename;
-    auto source_filepath = player_.source().toLocalFile();
-    QString save_filepath;
-    bool overwrite = false;
+    QUrl save_filepath;
     do {
         save_filename = QInputDialog::getText(this, tr("savefile name"), tr("enter file name of result"),
-                                              QLineEdit::Normal, source_filename, &confirmed);
-        save_filepath = QUrl(player_.source().toString(QUrl::RemoveFilename) + save_filename).toLocalFile();
+                                              QLineEdit::Normal, source_filepath.fileName(), &confirmed);
+        save_filepath = QUrl(source_filepath.toString(QUrl::RemoveFilename) + save_filename);
         if (not confirmed) {
             return;
         }
@@ -219,7 +154,7 @@ void MainWindow::save_result() {
             if (button == QMessageBox::Abort) {
                 return;
             }
-        } else if (save_filename == source_filename || QFile::exists(save_filepath)) {
+        } else if (save_filename == source_filepath.fileName() || QFile::exists(save_filepath.toLocalFile())) {
             auto button =
                 QMessageBox::warning(this, tr("overwrite source"),
                                      tr("provided filename already exists. Are you sure you want to OVERWRITE it?"),
@@ -231,7 +166,6 @@ void MainWindow::save_result() {
                 case QMessageBox::Abort:
                     return;
                 case QMessageBox::Yes:
-                    overwrite = true;
                     break;
                 default:
                     Q_UNREACHABLE();
@@ -240,21 +174,6 @@ void MainWindow::save_result() {
             break;
         }
     } while (save_filename.isEmpty());
-    using std::chrono::seconds;
-    seconds range_start(ui->rangeSlider_selected->GetLowerValue());
-    seconds range_end(ui->rangeSlider_selected->GetUpperValue());
-    QStringList arguments{"-ss",        QString::number(range_start.count()),
-                          "-to",        QString::number(range_end.count()),
-                          "-i",         source_filepath,
-                          "-c",         "copy",
-                          save_filepath};
-    ProcessWidget *ffmpeg_window = new ProcessWidget(this, Qt::Window);
-    ffmpeg_window->setWindowModality(Qt::ApplicationModal);
-    ffmpeg_window->setAttribute(Qt::WA_DeleteOnClose, true);
-    ffmpeg_window->show();
-    ffmpeg_window->start("ffmpeg", arguments);
-}
 
-void MainWindow::change_curent_time_slider_tracking_state(bool state) {
-    ui->horizontalSlider_current_pos->setTracking(state);
+    start_saving(save_filepath);
 }

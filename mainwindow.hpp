@@ -4,7 +4,12 @@
 #include <QAudioOutput>
 #include <QMainWindow>
 #include <QMediaPlayer>
+#include <QUrl>
 #include <chrono>
+#include <optional>
+#include <tuple>
+
+#include "processwidget.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -20,31 +25,27 @@ class MainWindow : public QMainWindow {
     ~MainWindow();
 
    private slots:
-    void play_pause_button_pressed();
-
-    void change_video_position(std::chrono::seconds newposition);
-    void update_video_position_display(std::chrono::seconds newposition);
-    void update_video_position_slider(std::chrono::seconds newposition);
-
-    void update_start_time_display(std::chrono::seconds time);
-    void update_start_time_slider(std::chrono::seconds time);
-
-    void update_end_time_display(std::chrono::seconds time);
-    void update_end_time_slider(std::chrono::seconds time);
 
     void open_video();
 
-    void update_duration(int newduration);
-
-    void show_videoerror(QMediaPlayer::Error, const QString &error_string);
-
     void save_result();
-
-    void change_curent_time_slider_tracking_state(bool state);
 
    private:
     Ui::MainWindow *ui;  // NOLINT(readability-identifier-naming)
-    QMediaPlayer player_;
-    QAudioOutput audio_output_;
+    ProcessWidget *process_ = nullptr;
+    QVector<std::tuple<QString, double, QString>> filename_duration_chaptername_tuples_;
+    std::tuple<QString, double, QString> current_filename_duration_chaptername_tuple_;
+    std::optional<QString> chaptername_plugin_ = std::nullopt;
+    QUrl result_path_;
+    int current_index_ = 0;
+    void start_saving(QUrl result_path);
+    void probe_for_duration();
+    void register_duration();
+    void create_chaptername();
+    void register_chaptername();
+    void confirm_chaptername();
+    void chaptername_confirmed();
+    void concatenate_videos();
+    void add_chapters();
 };
 #endif  // MAINWINDOW_H

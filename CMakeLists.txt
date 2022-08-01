@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(video_cutter VERSION 0.1 LANGUAGES CXX)
+project(video_concatnater VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -13,9 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools MultimediaWidgets Gui)
 
-set(TS_FILES video_cutter_ja_JP.ts)
-
-add_subdirectory(3rdparty)
+set(TS_FILES video_concatnater_ja_JP.ts)
 
 set(PROJECT_SOURCES
     main.cpp
@@ -25,10 +23,13 @@ set(PROJECT_SOURCES
     processwidget.hpp
     processwidget.cpp
     processwidget.ui
+    listdialog.hpp
+    listdialog.cpp
+    listdialog.ui
     ${TS_FILES}
 )
 
-qt_add_executable(video_cutter
+qt_add_executable(video_concatnater
     MANUAL_FINALIZATION
     ${PROJECT_SOURCES}
 )
@@ -46,26 +47,21 @@ if(NOT ${fmt_FOUND})
     )
 endif()
 
-target_link_libraries(video_cutter PRIVATE
+target_link_libraries(video_concatnater PRIVATE
     Qt6::Widgets
     Qt6::MultimediaWidgets
     Qt6::Gui
     fmt
-    RangeSlider
 )
 
-target_include_directories(video_cutter PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/Qt-RangeSlider
-)
-
-target_compile_definitions(video_cutter PRIVATE $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT$<SEMICOLON>QT_NO_DEBUG>)
-target_compile_options(video_cutter PRIVATE
+target_compile_definitions(video_concatnater PRIVATE $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT$<SEMICOLON>QT_NO_DEBUG>)
+target_compile_options(video_concatnater PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-Wall -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic>
     $<$<CXX_COMPILER_ID:GNU>:-pedantic -Wall -Wextra -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Winit-self -Wlogical-op -Wmissing-declarations -Wmissing-include-dirs -Wnoexcept -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=2 -Wswitch-default -Wundef -Wno-unused -Wunsafe-loop-optimizations -Wfloat-equal>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
 
-set_target_properties(video_cutter PROPERTIES
+set_target_properties(video_concatnater PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
@@ -73,4 +69,4 @@ set_target_properties(video_cutter PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
-qt_finalize_executable(video_cutter)
+qt_finalize_executable(video_concatnater)
