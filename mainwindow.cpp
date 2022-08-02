@@ -10,11 +10,13 @@
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QMetaEnum>
 #include <QPair>
 #include <QPushButton>
 #include <QStandardPaths>
@@ -41,7 +43,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     }
 }
 
-MainWindow::~MainWindow() { delete ui_; }
+MainWindow::~MainWindow() {
+    delete ui_;
+    if (settings_ != nullptr) {
+        settings_->deleteLater();
+    }
+    if (tmpdir_ != nullptr) {
+        delete tmpdir_;
+    }
+}
 
 void MainWindow::open_video_() {
     auto videodirs = QStandardPaths::standardLocations(QStandardPaths::MoviesLocation);
@@ -126,13 +136,40 @@ void MainWindow::confirm_chaptername_() {
     }
 }
 void MainWindow::concatenate_videos_() {
-    std::string test_str = "";
-    for (const auto &[filename, duration, chaptername] : filename_duration_chaptername_tuples_) {
-        test_str += fmt::format("'{}' : '{}' : '{}'\n", filename.toStdString(), duration, chaptername.toStdString());
+    tmpdir_ = new QTemporaryDir();
+    if (not tmpdir_->isValid()) {
+        QMessageBox::critical(this, tr("temporary directory error"),
+                              tr("failed to create temporary directory \n%1").arg(tmpdir_->errorString()));
+        return;
     }
-    QMessageBox::information(this, tr("test"), QString::fromStdString(test_str));
+    QFile concat_file(tmpdir_->filePath("concat.txt"));
+    if (not concat_file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::critical(
+            this, tr("file open error"),
+            tr("failed to open file [%1]. QFile::error(): %2").arg(concat_file.fileName()).arg(concat_file.error()));
+        return;
+    }
+    QTextStream concat_file_stream(&concat_file);
+    for (const auto &[filename, duration, chaptername] : filename_duration_chaptername_tuples_) {
+        concat_file_stream << "file '" << filename << "'\n";
+    }
+    concat_file.close();
+    QStringList arguments;
+    // clang-format off
+    arguments << "-f" << "concat"
+              << "-safe" << "0"
+              << "-i" << concat_file.fileName() 
+              << "-c" << "copy" 
+              << tmpdir_->filePath("concatenated."+QFileInfo(result_path_.toLocalFile()).suffix());
+    // clang-format on
+    process_->start("ffmpeg", arguments, false);
+    connect(process_, &ProcessWidget::finished_success, this, &MainWindow::add_chapters_);
 }
-void MainWindow::add_chapters_() {}
+void MainWindow::add_chapters_() {
+    disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::add_chapters_);
+    delete tmpdir_;
+    tmpdir_ = nullptr;
+}
 void MainWindow::start_saving_(QUrl result_path, QString plugin) {
     process_ = new ProcessWidget(this, Qt::Window);
     process_->setWindowModality(Qt::WindowModal);

@@ -6,6 +6,7 @@
 #include <QMainWindow>
 #include <QMediaPlayer>
 #include <QSettings>
+#include <QTemporaryDir>
 #include <QUrl>
 #include <chrono>
 #include <optional>
@@ -36,7 +37,7 @@ class MainWindow : public QMainWindow {
 
    private:
     Ui::MainWindow *ui_;
-    ProcessWidget *process_ = nullptr;
+    ProcessWidget *process_ = nullptr;  // deleted on close
     QSettings *settings_ = nullptr;
     QVector<std::tuple<QString, double, QString>> filename_duration_chaptername_tuples_;
     std::tuple<QString, double, QString> current_filename_duration_chaptername_tuple_;
@@ -44,6 +45,7 @@ class MainWindow : public QMainWindow {
     static constexpr auto NO_PLUGIN = "do not use any plugins";
     QUrl result_path_;
     int current_index_ = 0;
+    QTemporaryDir *tmpdir_ = nullptr;
 
     QDir chaptername_plugins_dir_();
     QStringList search_chapternames_plugins_();
