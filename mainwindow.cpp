@@ -21,6 +21,7 @@
 #include <QPushButton>
 #include <QStandardPaths>
 #include <QStringList>
+#include <QTextStream>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QVector>
@@ -62,7 +63,8 @@ void MainWindow::open_video_() {
 }
 
 void MainWindow::probe_for_duration_() {
-    QStringList ffprobe_arguments{"-hide_banner", "-show_entries", "format=duration", "-of", "compact", "-v", "quiet"};
+    QStringList ffprobe_arguments{"-hide_banner", "-show_entries", "format=duration", "-of",
+                                  "compact" /*, "-v", "quiet"*/};
     QString filename = ui_->listWidget_filenames->item(current_index_)->text();
     process_->start("ffprobe", ffprobe_arguments + QStringList{filename}, false);
     connect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_duration_);
@@ -71,7 +73,6 @@ void MainWindow::register_duration_() {
     QString filename = ui_->listWidget_filenames->item(current_index_)->text();
     QRegularExpression ffprobe_extractor(R"(format\|duration=([0-9.]+))");
     auto match = ffprobe_extractor.match(process_->get_stdout());
-    process_->clear_stdout();
     if (not match.hasMatch()) {
         QMessageBox::critical(
             this, tr("ffprobe parse error"),
@@ -107,7 +108,6 @@ void MainWindow::create_chaptername_() {
 void MainWindow::register_chaptername_() {
     if (chaptername_plugin_.has_value()) {
         std::get<2>(current_filename_duration_chaptername_tuple_) = process_->get_stdout().remove('\n');
-        process_->clear_stdout();
         disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_chaptername_);
     }
     filename_duration_chaptername_tuples_.push_back(current_filename_duration_chaptername_tuple_);
@@ -247,6 +247,7 @@ int MainWindow::default_chapternames_plugin_index_() {
         int raw_idx = chapternames_plugins_().indexOf(settings_->value("default_chaptername_plugin"));
         result = qMax(raw_idx, 0);
     }
+
     return result;
 }
 QDir MainWindow::chaptername_plugins_dir_() {

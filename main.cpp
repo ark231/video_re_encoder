@@ -2,9 +2,22 @@
 #include <QLocale>
 #include <QTranslator>
 
+#if defined(_WIN32) && !defined(NDEBUG)
+#    include <windows.h>
+#endif
+
 #include "mainwindow.hpp"
 
 int main(int argc, char *argv[]) {
+#if defined(_WIN32) && !defined(NDEBUG)
+    // https://qiita.com/comocc/items/4604bea440018dfb5bd1
+    FILE *fp;
+    if (not AttachConsole(ATTACH_PARENT_PROCESS)) {
+        AllocConsole();
+    }
+    freopen_s(&fp, "CONOUT$", "w", stdout); /* 標準出力(stdout)を新しいコンソールに向ける */
+    freopen_s(&fp, "CONOUT$", "w", stderr); /* 標準エラー出力(stderr)を新しいコンソールに向ける */
+#endif
     QApplication a(argc, argv);
 
     QTranslator translator;

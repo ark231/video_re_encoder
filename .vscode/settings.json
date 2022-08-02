@@ -2,13 +2,15 @@
     "cSpell.words": [
         "chaptername",
         "chapternames",
-        "ffprobe"
+        "ffprobe",
+        "textedit"
     ],
     "files.associations": {
         "*.md": "markdown",
         "chrono": "cpp",
         "filesystem": "cpp",
         "optional": "cpp",
-        "xlocmes": "cpp"
+        "xlocmes": "cpp",
+        "fstream": "cpp"
     }
 }

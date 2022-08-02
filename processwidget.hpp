@@ -11,6 +11,8 @@ namespace Ui {
 class ProcessWidget;
 }
 
+class QTextEdit;
+
 class ProcessWidget : public QWidget {
     Q_OBJECT
 
@@ -41,18 +43,20 @@ class ProcessWidget : public QWidget {
      * @brief Get the content of stdout textarea. This function does not block.
      * @warning If this function is called while process is running, returned value will be incomplete.
      *
+     * @param index index of command whose command will be returned. negative value means latest command
      * @return QString content of stdout textarea
      */
-    QString get_stdout();
+    QString get_stdout(int index = -1);
     /**
      * @brief Get the content of stderr textarea. This function does not block.
      * @warning If this function is called while process is running, returned value will be incomplete.
      *
+     * @param index index of command whose command will be returned. negative value means latest command
      * @return QString content of stderr textarea
      */
-    QString get_stderr();
-    void clear_stdout();
-    void clear_stderr();
+    QString get_stderr(int index = -1);
+    void clear_stdout(int index = -1);
+    void clear_stderr(int index = -1);
     QString program();
     QStringList arguments();
 
@@ -63,8 +67,9 @@ class ProcessWidget : public QWidget {
    private:
     Ui::ProcessWidget *ui_;
     QThread thread_;
-    QProcess process_;
-    bool is_first_ = true;
+    QProcess *process_ = nullptr;
+    int current_stdout_tab_idx_ = -1;
+    int current_stderr_tab_idx_ = -1;
    signals:
     void start_process(const QString &command, const QStringList &arguments, QIODeviceBase::OpenMode);
     void sigkill();
@@ -77,6 +82,10 @@ class ProcessWidget : public QWidget {
     void enable_closing_();
     void do_close_();
     void show_error_(QProcess::ProcessError error);
+
+   private:
+    QTextEdit *stdout_textedit_of_(int idx);
+    QTextEdit *stderr_textedit_of_(int idx);
 };
 
 #endif  // PROCESSWIDGET_HPP

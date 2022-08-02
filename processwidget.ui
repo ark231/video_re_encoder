@@ -37,9 +37,9 @@
         </attribute>
         <layout class="QGridLayout" name="gridLayout_2">
          <item row="0" column="0">
-          <widget class="QTextEdit" name="textEdit_stdout">
-           <property name="readOnly">
-            <bool>true</bool>
+          <widget class="QTabWidget" name="tab_stdout_commands">
+           <property name="currentIndex">
+            <number>-1</number>
            </property>
           </widget>
          </item>
@@ -51,12 +51,9 @@
         </attribute>
         <layout class="QGridLayout" name="gridLayout_3">
          <item row="0" column="0">
-          <widget class="QTextEdit" name="textEdit_stderr">
-           <property name="mouseTracking">
-            <bool>true</bool>
-           </property>
-           <property name="readOnly">
-            <bool>true</bool>
+          <widget class="QTabWidget" name="tab_stderr_commands">
+           <property name="currentIndex">
+            <number>-1</number>
            </property>
           </widget>
          </item>
