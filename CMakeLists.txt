@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(video_concatnater VERSION 0.1 LANGUAGES CXX)
+project(video_concatenater VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools MultimediaWidgets Gui)
 
-set(TS_FILES video_concatnater_ja_JP.ts)
+set(TS_FILES video_concatenater_ja_JP.ts)
 
 set(PROJECT_SOURCES
     main.cpp
@@ -29,7 +29,7 @@ set(PROJECT_SOURCES
     ${TS_FILES}
 )
 
-qt_add_executable(video_concatnater
+qt_add_executable(video_concatenater
     MANUAL_FINALIZATION
     ${PROJECT_SOURCES}
 )
@@ -47,21 +47,21 @@ if(NOT ${fmt_FOUND})
     )
 endif()
 
-target_link_libraries(video_concatnater PRIVATE
+target_link_libraries(video_concatenater PRIVATE
     Qt6::Widgets
     Qt6::MultimediaWidgets
     Qt6::Gui
     fmt
 )
 
-target_compile_definitions(video_concatnater PRIVATE $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT$<SEMICOLON>QT_NO_DEBUG>)
-target_compile_options(video_concatnater PRIVATE
+target_compile_definitions(video_concatenater PRIVATE $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT$<SEMICOLON>QT_NO_DEBUG>)
+target_compile_options(video_concatenater PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-Wall -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic>
     $<$<CXX_COMPILER_ID:GNU>:-pedantic -Wall -Wextra -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Winit-self -Wlogical-op -Wmissing-declarations -Wmissing-include-dirs -Wnoexcept -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=2 -Wswitch-default -Wundef -Wno-unused -Wunsafe-loop-optimizations -Wfloat-equal>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
 
-set_target_properties(video_concatnater PROPERTIES
+set_target_properties(video_concatenater PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
@@ -69,4 +69,4 @@ set_target_properties(video_concatnater PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
-qt_finalize_executable(video_concatnater)
+qt_finalize_executable(video_concatenater)
