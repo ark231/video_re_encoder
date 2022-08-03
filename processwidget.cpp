@@ -40,9 +40,30 @@ void ProcessWidget::start(const QString &command, const QStringList &arguments, 
         connect(process_, &QProcess::finished, this, &ProcessWidget::enable_closing_);
     }
 
+    auto arguments_content = new QWidget;
+    auto arguments_layout = new QGridLayout(arguments_content);
+    auto arguments_textedit = new QTextEdit(arguments_content);
+    arguments_textedit->setReadOnly(true);
+    arguments_textedit->setLineWrapMode(QTextEdit::NoWrap);
+    arguments_textedit->setWordWrapMode(QTextOption::NoWrap);
+    QString arguments_quoted;
+    QTextStream arguments_stream(&arguments_quoted);
+    for (const auto &argument : arguments) {
+        if (argument.contains(" ")) {
+            arguments_stream << QStringLiteral(R"("%1")").arg(argument);
+        } else {
+            arguments_stream << argument;
+        }
+        arguments_stream << " ";
+    }
+    arguments_textedit->append(arguments_quoted);
+    arguments_layout->addWidget(arguments_textedit);
+    auto current_arguments_tab_idx = ui_->tab_arguments_commands->addTab(arguments_content, command);
+    ui_->tab_arguments_commands->setCurrentIndex(current_arguments_tab_idx);
+
     auto stdout_content = new QWidget;
     auto stdout_layout = new QGridLayout(stdout_content);
-    auto stdout_textedit = new QTextEdit;
+    auto stdout_textedit = new QTextEdit(stdout_content);
     stdout_textedit->setReadOnly(true);
     stdout_layout->addWidget(stdout_textedit);
     current_stdout_tab_idx_ = ui_->tab_stdout_commands->addTab(stdout_content, command);
@@ -50,7 +71,7 @@ void ProcessWidget::start(const QString &command, const QStringList &arguments, 
 
     auto stderr_content = new QWidget;
     auto stderr_layout = new QGridLayout(stderr_content);
-    auto stderr_textedit = new QTextEdit;
+    auto stderr_textedit = new QTextEdit(stdout_content);
     stderr_textedit->setReadOnly(true);
     stderr_layout->addWidget(stderr_textedit);
     current_stderr_tab_idx_ = ui_->tab_stderr_commands->addTab(stderr_content, command);

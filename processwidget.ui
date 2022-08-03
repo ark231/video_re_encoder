@@ -59,6 +59,16 @@
          </item>
         </layout>
        </widget>
+       <widget class="QWidget" name="tab_arguments">
+        <attribute name="title">
+         <string>arguments</string>
+        </attribute>
+        <layout class="QGridLayout" name="gridLayout_4">
+         <item row="0" column="0">
+          <widget class="QTabWidget" name="tab_arguments_commands"/>
+         </item>
+        </layout>
+       </widget>
       </widget>
      </item>
      <item>
