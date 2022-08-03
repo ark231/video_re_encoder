@@ -31,10 +31,9 @@ class MainWindow : public QMainWindow {
    private slots:
 
     void open_video_();
-
     void save_result_();
-
     void select_default_chaptername_plugin_();
+    void select_savefile_name_plugin_();
 
    private:
     Ui::MainWindow *ui_;
@@ -44,6 +43,11 @@ class MainWindow : public QMainWindow {
     std::tuple<QString, double, QString> current_filename_duration_chaptername_tuple_;
     std::optional<QString> chaptername_plugin_ = std::nullopt;
     static constexpr auto NO_PLUGIN = "do not use any plugins";
+#ifdef _WIN32
+    static constexpr auto PYTHON = "py";
+#else
+    static constexpr auto PYTHON = "python";
+#endif
     QUrl result_path_;
     struct {
         QString concatenated;
@@ -56,13 +60,21 @@ class MainWindow : public QMainWindow {
     QStringList search_chapternames_plugins_();
     QStringList chapternames_plugins_();
     int default_chapternames_plugin_index_();
-    void start_saving_(QUrl result_path, QString plugin);
+
+    QDir savefile_name_plugins_dir_();
+    QStringList search_savefile_name_plugins_();
+    QStringList savefile_name_plugins_();
+    int savefile_name_plugin_index_();
+
+    void start_saving_();
+    void create_savefile_name_();
+    void confirm_savefile_name_();
+    void confirm_chaptername_plugin_();
     void probe_for_duration_();
     void register_duration_();
     void create_chaptername_();
     void register_chaptername_();
     void confirm_chaptername_();
-    void chaptername_confirmed_();
     void concatenate_videos_();
     void retrieve_metadata_();
     void add_chapters_();

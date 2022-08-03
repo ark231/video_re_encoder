@@ -38,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     connect(ui_->actionopen, &QAction::triggered, this, &MainWindow::open_video_);
     connect(ui_->pushButton_save, &QPushButton::pressed, this, &MainWindow::save_result_);
     connect(ui_->actiondefault_extractor, &QAction::triggered, this, &MainWindow::select_default_chaptername_plugin_);
+    connect(ui_->actionsavefile_name_generator, &QAction::triggered, this, &MainWindow::select_savefile_name_plugin_);
     QDir settings_dir(QApplication::applicationDirPath() + "/settings");
     if (QDir().mkpath(settings_dir.absolutePath())) {  // QDir::mkpath() returns true even when path already exists
         settings_ = new QSettings(settings_dir.filePath("settings.ini"), QSettings::IniFormat);
@@ -62,6 +63,84 @@ void MainWindow::open_video_() {
     ui_->pushButton_save->setEnabled(true);
 }
 
+void MainWindow::create_savefile_name_() {
+    QString filename = QUrl::fromLocalFile(ui_->listWidget_filenames->item(current_index_)->text()).fileName();
+    if (settings_->contains("savefile_name_plugin") && settings_->value("savefile_name_plugin") != NO_PLUGIN) {
+        process_->start(
+            PYTHON,
+            {savefile_name_plugins_dir_().absoluteFilePath(settings_->value("savefile_name_plugin").toString()),
+             filename},
+            false);
+        connect(process_, &ProcessWidget::finished_success, this, &MainWindow::confirm_savefile_name_);
+    } else {
+        confirm_savefile_name_();
+    }
+}
+void MainWindow::confirm_savefile_name_() {
+    auto source_filepath = QUrl::fromLocalFile(ui_->listWidget_filenames->item(0)->text());
+    QString default_savefile_name = source_filepath.fileName();
+    if (settings_->contains("savefile_name_plugin") && settings_->value("savefile_name_plugin") != NO_PLUGIN) {
+        disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::confirm_savefile_name_);
+        default_savefile_name = process_->get_stdout();
+    }
+    bool confirmed = false;
+    QString save_filename;
+    QUrl save_filepath;
+    do {
+        save_filename = QInputDialog::getText(this, tr("savefile name"), tr("enter file name of result"),
+                                              QLineEdit::Normal, default_savefile_name, &confirmed);
+        save_filepath = QUrl(source_filepath.toString(QUrl::RemoveFilename) + save_filename);
+        if (not confirmed) {
+            return;
+        }
+        if (save_filename.isEmpty()) {
+            auto button = QMessageBox::warning(this, tr("empty filename"), tr("filename cannot be empty"),
+                                               QMessageBox::Retry | QMessageBox::Abort, QMessageBox::Retry);
+            if (button == QMessageBox::Abort) {
+                return;
+            }
+        } else if (save_filename == source_filepath.fileName() || QFile::exists(save_filepath.toLocalFile())) {
+            auto button =
+                QMessageBox::warning(this, tr("overwrite source"),
+                                     tr("provided filename already exists. Are you sure you want to OVERWRITE it?"),
+                                     QMessageBox::Retry | QMessageBox::Abort | QMessageBox::Yes, QMessageBox::Retry);
+            switch (button) {
+                case QMessageBox::Retry:
+                    save_filename = "";
+                    break;
+                case QMessageBox::Abort:
+                    return;
+                case QMessageBox::Yes:
+                    break;
+                default:
+                    Q_UNREACHABLE();
+            }
+        } else {
+            break;
+        }
+    } while (save_filename.isEmpty());
+    result_path_ = save_filepath;
+    confirm_chaptername_plugin_();
+}
+void MainWindow::confirm_chaptername_plugin_() {
+    QDir plugin_dir = chaptername_plugins_dir_();
+    QString plugin = NO_PLUGIN;
+    bool confirmed;
+    if (plugin_dir.exists()) {
+        plugin = QInputDialog::getItem(
+            this, tr("select plugin"), tr("chapter name plugins are found. Select one you want to use."),
+            chapternames_plugins_(), default_chapternames_plugin_index_(), false, &confirmed);
+        if (not confirmed) {
+            return;
+        }
+    }
+    if (plugin == NO_PLUGIN) {
+        chaptername_plugin_ = std::nullopt;
+    } else {
+        chaptername_plugin_ = chaptername_plugins_dir_().absoluteFilePath(plugin);
+    }
+    probe_for_duration_();
+}
 void MainWindow::probe_for_duration_() {
     QStringList ffprobe_arguments{"-hide_banner", "-show_entries", "format=duration", "-of",
                                   "compact" /*, "-v", "quiet"*/};
@@ -93,11 +172,6 @@ void MainWindow::register_duration_() {
 void MainWindow::create_chaptername_() {
     QString filename = QUrl::fromLocalFile(ui_->listWidget_filenames->item(current_index_)->text()).fileName();
     if (chaptername_plugin_.has_value()) {
-#ifdef _WIN32
-        constexpr auto PYTHON = "py";
-#else
-        constexpr auto PYTHON = "python";
-#endif
         process_->start(PYTHON, {chaptername_plugin_.value(), filename}, false);
         connect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_chaptername_);
     } else {
@@ -228,7 +302,7 @@ void MainWindow::cleanup_after_saving_() {
     delete tmpdir_;
     tmpdir_ = nullptr;
 }
-void MainWindow::start_saving_(QUrl result_path, QString plugin) {
+void MainWindow::start_saving_() {
     process_ = new ProcessWidget(this, Qt::Window);
     process_->setWindowModality(Qt::WindowModal);
     process_->setAttribute(Qt::WA_DeleteOnClose, true);
@@ -236,68 +310,13 @@ void MainWindow::start_saving_(QUrl result_path, QString plugin) {
 
     filename_duration_chaptername_tuples_.clear();
     current_index_ = 0;
-    result_path_ = result_path;
-    if (plugin == NO_PLUGIN) {
-        chaptername_plugin_ = std::nullopt;
-    } else {
-        chaptername_plugin_ = chaptername_plugins_dir_().absoluteFilePath(plugin);
-    }
-    probe_for_duration_();
+    create_savefile_name_();
 }
 void MainWindow::save_result_() {
     if (ui_->listWidget_filenames->count() == 0) {
         return;
     }
-    auto source_filepath = QUrl::fromLocalFile(ui_->listWidget_filenames->item(0)->text());
-    bool confirmed = false;
-    QString save_filename;
-    QUrl save_filepath;
-    do {
-        save_filename = QInputDialog::getText(this, tr("savefile name"), tr("enter file name of result"),
-                                              QLineEdit::Normal, source_filepath.fileName(), &confirmed);
-        save_filepath = QUrl(source_filepath.toString(QUrl::RemoveFilename) + save_filename);
-        if (not confirmed) {
-            return;
-        }
-        if (save_filename.isEmpty()) {
-            auto button = QMessageBox::warning(this, tr("empty filename"), tr("filename cannot be empty"),
-                                               QMessageBox::Retry | QMessageBox::Abort, QMessageBox::Retry);
-            if (button == QMessageBox::Abort) {
-                return;
-            }
-        } else if (save_filename == source_filepath.fileName() || QFile::exists(save_filepath.toLocalFile())) {
-            auto button =
-                QMessageBox::warning(this, tr("overwrite source"),
-                                     tr("provided filename already exists. Are you sure you want to OVERWRITE it?"),
-                                     QMessageBox::Retry | QMessageBox::Abort | QMessageBox::Yes, QMessageBox::Retry);
-            switch (button) {
-                case QMessageBox::Retry:
-                    save_filename = "";
-                    break;
-                case QMessageBox::Abort:
-                    return;
-                case QMessageBox::Yes:
-                    break;
-                default:
-                    Q_UNREACHABLE();
-            }
-        } else {
-            break;
-        }
-    } while (save_filename.isEmpty());
-
-    QDir plugin_dir = chaptername_plugins_dir_();
-    QString plugin = NO_PLUGIN;
-    if (plugin_dir.exists()) {
-        plugin = QInputDialog::getItem(
-            this, tr("select plugin"), tr("chapter name plugins are found. Select one you want to use."),
-            chapternames_plugins_(), default_chapternames_plugin_index_(), false, &confirmed);
-        if (not confirmed) {
-            return;
-        }
-    }
-
-    start_saving_(save_filepath, plugin);
+    start_saving_();
 }
 int MainWindow::default_chapternames_plugin_index_() {
     int result = 0;
@@ -314,7 +333,9 @@ QDir MainWindow::chaptername_plugins_dir_() {
 QStringList MainWindow::search_chapternames_plugins_() {
     return chaptername_plugins_dir_().entryList({"*.py"}, QDir::Files);
 }
+
 QStringList MainWindow::chapternames_plugins_() { return QStringList{NO_PLUGIN} + search_chapternames_plugins_(); }
+
 void MainWindow::select_default_chaptername_plugin_() {
     QString plugin = NO_PLUGIN;
     bool confirmed;
@@ -322,5 +343,33 @@ void MainWindow::select_default_chaptername_plugin_() {
                                    chapternames_plugins_(), default_chapternames_plugin_index_(), false, &confirmed);
     if (confirmed && settings_ != nullptr) {
         settings_->setValue("default_chaptername_plugin", plugin);
+    }
+}
+
+int MainWindow::savefile_name_plugin_index_() {
+    int result = 0;
+    if (settings_->contains("savefile_name_plugin")) {
+        int raw_idx = savefile_name_plugins_().indexOf(settings_->value("savefile_name_plugin"));
+        result = qMax(raw_idx, 0);
+    }
+
+    return result;
+}
+QDir MainWindow::savefile_name_plugins_dir_() {
+    return QDir(QApplication::applicationDirPath() + "/plugins/savefile_name");
+}
+QStringList MainWindow::search_savefile_name_plugins_() {
+    return savefile_name_plugins_dir_().entryList({"*.py"}, QDir::Files);
+}
+
+QStringList MainWindow::savefile_name_plugins_() { return QStringList{NO_PLUGIN} + search_savefile_name_plugins_(); }
+
+void MainWindow::select_savefile_name_plugin_() {
+    QString plugin = NO_PLUGIN;
+    bool confirmed;
+    plugin = QInputDialog::getItem(this, tr("select plugin"), tr("Select savefile name plugin."),
+                                   savefile_name_plugins_(), savefile_name_plugin_index_(), false, &confirmed);
+    if (confirmed && settings_ != nullptr) {
+        settings_->setValue("savefile_name_plugin", plugin);
     }
 }
