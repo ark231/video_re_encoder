@@ -4,6 +4,7 @@
 #include <QAudioOutput>
 #include <QDir>
 #include <QMainWindow>
+#include <QMap>
 #include <QMediaPlayer>
 #include <QSettings>
 #include <QTemporaryDir>
@@ -44,6 +45,10 @@ class MainWindow : public QMainWindow {
     std::optional<QString> chaptername_plugin_ = std::nullopt;
     static constexpr auto NO_PLUGIN = "do not use any plugins";
     QUrl result_path_;
+    struct {
+        QString concatenated;
+        QString metadata;
+    } tmpfile_paths_;
     int current_index_ = 0;
     QTemporaryDir *tmpdir_ = nullptr;
 
@@ -59,6 +64,8 @@ class MainWindow : public QMainWindow {
     void confirm_chaptername_();
     void chaptername_confirmed_();
     void concatenate_videos_();
+    void retrieve_metadata_();
     void add_chapters_();
+    void cleanup_after_saving_();
 };
 #endif  // MAINWINDOW_H

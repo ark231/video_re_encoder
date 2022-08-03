@@ -155,18 +155,76 @@ void MainWindow::concatenate_videos_() {
     }
     concat_file.close();
     QStringList arguments;
+    tmpfile_paths_.concatenated = tmpdir_->filePath("concatenated." + QFileInfo(result_path_.toLocalFile()).suffix());
     // clang-format off
     arguments << "-f" << "concat"
               << "-safe" << "0"
               << "-i" << concat_file.fileName() 
               << "-c" << "copy" 
-              << tmpdir_->filePath("concatenated."+QFileInfo(result_path_.toLocalFile()).suffix());
+              << tmpfile_paths_.concatenated;
+    // clang-format on
+    process_->start("ffmpeg", arguments, false);
+    connect(process_, &ProcessWidget::finished_success, this, &MainWindow::retrieve_metadata_);
+}
+void MainWindow::retrieve_metadata_() {
+    disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::retrieve_metadata_);
+    QStringList arguments;
+    tmpfile_paths_.metadata = tmpdir_->filePath("metadata.ini");
+    // clang-format off
+    arguments << "-i" << tmpfile_paths_.concatenated 
+              << "-f" << "ffmetadata" 
+              << tmpfile_paths_.metadata;
     // clang-format on
     process_->start("ffmpeg", arguments, false);
     connect(process_, &ProcessWidget::finished_success, this, &MainWindow::add_chapters_);
 }
 void MainWindow::add_chapters_() {
     disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::add_chapters_);
+    QFile metadata_file(tmpfile_paths_.metadata);
+    if (not metadata_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        QMessageBox::critical(this, tr("file open error"),
+                              tr("failed to open file [%1]. QFile::error(): %2")
+                                  .arg(metadata_file.fileName())
+                                  .arg(metadata_file.error()));
+        return;
+    }
+    QTextStream metadata_stream(&metadata_file);
+    metadata_stream << Qt::endl;
+    using namespace std::chrono_literals;
+    using micro_seconds = std::chrono::duration<double, std::micro>;
+    using std::chrono::duration_cast;
+    auto start = 0.0s;
+    for (const auto &[filename, raw_duration, chaptername] : filename_duration_chaptername_tuples_) {
+        std::chrono::duration<double> duration(raw_duration);
+        metadata_stream << "[CHAPTER]" << Qt::endl;
+        metadata_stream << "TIMEBASE=1/1000000" << Qt::endl;
+        metadata_stream << "START=" << static_cast<quint64>(duration_cast<micro_seconds>(start).count()) << Qt::endl;
+        metadata_stream << "END=" << static_cast<quint64>(duration_cast<micro_seconds>(start + duration).count())
+                        << Qt::endl;
+        metadata_stream << "TITLE=" << chaptername << Qt::endl;
+        start += duration;
+    }
+    metadata_file.close();
+
+    QStringList arguments;
+    // clang-format off
+    arguments << "-i" << tmpfile_paths_.concatenated
+              << "-i" << tmpfile_paths_.metadata
+              << "-map_metadata" << "1"
+              << "-map_chapters" << "1"
+              << "-c" << "copy" 
+              << result_path_.toLocalFile();
+    // clang-format on
+
+    // process_->start(
+    //     "py", {"-c", "import time;[print(i,flush=True) or time.sleep(1) for i in range(120)]",
+    //     tmpfile_paths_.metadata}, true);
+
+    process_->start("ffmpeg", arguments, true);
+    connect(process_, &ProcessWidget::finished_success, this, &MainWindow::cleanup_after_saving_);
+}
+void MainWindow::cleanup_after_saving_() {
+    disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::cleanup_after_saving_);
     delete tmpdir_;
     tmpdir_ = nullptr;
 }
