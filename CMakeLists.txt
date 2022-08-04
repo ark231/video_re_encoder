@@ -27,6 +27,8 @@ set(PROJECT_SOURCES
     listdialog.cpp
     listdialog.ui
     ${TS_FILES}
+    main_resources.qrc
+    $<$<PLATFORM_ID:Windows>:windows.rc>
 )
 
 qt_add_executable(video_concatenater
