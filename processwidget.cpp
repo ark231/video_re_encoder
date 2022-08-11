@@ -101,11 +101,11 @@ void ProcessWidget::update_label_on_finish_(int exit_code, QProcess::ExitStatus 
         case QProcess::NormalExit:
             ui_->label_status->setText(
                 tr("Execution of %1 has finished with exit code %2.").arg(process_->program()).arg(exit_code));
-            emit finished_success();
+            emit finished(true);
             break;
         case QProcess::CrashExit:
             ui_->label_status->setText(tr("Execution of %1 has crashed.").arg(process_->program()));
-            emit finished_failure();
+            emit finished(false);
             break;
         default:
             Q_UNREACHABLE();

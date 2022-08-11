@@ -61,8 +61,7 @@ class ProcessWidget : public QWidget {
     QStringList arguments();
 
    signals:
-    void finished_success();
-    void finished_failure();
+    void finished(bool is_success);
 
    private:
     Ui::ProcessWidget *ui_;

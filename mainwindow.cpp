@@ -27,6 +27,7 @@
 #include <QVector>
 #include <chrono>
 #include <ciso646>
+#include <functional>
 
 #include "./ui_mainwindow.h"
 #include "listdialog.hpp"
@@ -62,6 +63,21 @@ void MainWindow::open_video_() {
     ui_->listWidget_filenames->addItems(filenames);
     ui_->pushButton_save->setEnabled(true);
 }
+namespace impl_ {
+constexpr Qt::ConnectionType ONESHOT_AUTO_CONNECTION =
+    static_cast<Qt::ConnectionType>(Qt::AutoConnection | Qt::SingleShotConnection);
+class OnTrue {
+    std::function<void(void)> func_;
+
+   public:
+    OnTrue(std::function<void(void)> func) : func_(func) {}
+    void operator()(bool arg) {
+        if (arg) {
+            this->func_();
+        }
+    }
+};
+}  // namespace impl_
 
 void MainWindow::create_savefile_name_() {
     QString filename = QUrl::fromLocalFile(ui_->listWidget_filenames->item(current_index_)->text()).fileName();
@@ -71,7 +87,8 @@ void MainWindow::create_savefile_name_() {
             {savefile_name_plugins_dir_().absoluteFilePath(settings_->value("savefile_name_plugin").toString()),
              filename},
             false);
-        connect(process_, &ProcessWidget::finished_success, this, &MainWindow::confirm_savefile_name_);
+        connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->confirm_savefile_name_(); }),
+                impl_::ONESHOT_AUTO_CONNECTION);
     } else {
         confirm_savefile_name_();
     }
@@ -80,7 +97,6 @@ void MainWindow::confirm_savefile_name_() {
     auto source_filepath = QUrl::fromLocalFile(ui_->listWidget_filenames->item(0)->text());
     QString default_savefile_name = source_filepath.fileName();
     if (settings_->contains("savefile_name_plugin") && settings_->value("savefile_name_plugin") != NO_PLUGIN) {
-        disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::confirm_savefile_name_);
         default_savefile_name = process_->get_stdout();
     }
     bool confirmed = false;
@@ -146,7 +162,8 @@ void MainWindow::probe_for_duration_() {
                                   "compact" /*, "-v", "quiet"*/};
     QString filename = ui_->listWidget_filenames->item(current_index_)->text();
     process_->start("ffprobe", ffprobe_arguments + QStringList{filename}, false);
-    connect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_duration_);
+    connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->register_duration_(); }),
+            impl_::ONESHOT_AUTO_CONNECTION);
 }
 void MainWindow::register_duration_() {
     QString filename = ui_->listWidget_filenames->item(current_index_)->text();
@@ -166,14 +183,17 @@ void MainWindow::register_duration_() {
         return;
     }
     current_filename_duration_chaptername_tuple_ = {filename, duration, ""};
-    disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_duration_);
     create_chaptername_();
 }
 void MainWindow::create_chaptername_() {
     QString filename = QUrl::fromLocalFile(ui_->listWidget_filenames->item(current_index_)->text()).fileName();
     if (chaptername_plugin_.has_value()) {
-        process_->start(PYTHON, {chaptername_plugin_.value(), filename}, false);
-        connect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_chaptername_);
+        process_->start(PYTHON,
+                        {chaptername_plugin_.value(), filename,
+                         QString::number(std::get<1>(current_filename_duration_chaptername_tuple_), 'g', 10)},
+                        false);
+        connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->register_chaptername_(); }),
+                impl_::ONESHOT_AUTO_CONNECTION);
     } else {
         std::get<2>(current_filename_duration_chaptername_tuple_) = filename;
         register_chaptername_();
@@ -182,7 +202,6 @@ void MainWindow::create_chaptername_() {
 void MainWindow::register_chaptername_() {
     if (chaptername_plugin_.has_value()) {
         std::get<2>(current_filename_duration_chaptername_tuple_) = process_->get_stdout().remove('\n');
-        disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::register_chaptername_);
     }
     filename_duration_chaptername_tuples_.push_back(current_filename_duration_chaptername_tuple_);
     if (current_index_ == ui_->listWidget_filenames->count() - 1) {
@@ -238,10 +257,10 @@ void MainWindow::concatenate_videos_() {
               << tmpfile_paths_.concatenated;
     // clang-format on
     process_->start("ffmpeg", arguments, false);
-    connect(process_, &ProcessWidget::finished_success, this, &MainWindow::retrieve_metadata_);
+    connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->retrieve_metadata_(); }),
+            impl_::ONESHOT_AUTO_CONNECTION);
 }
 void MainWindow::retrieve_metadata_() {
-    disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::retrieve_metadata_);
     QStringList arguments;
     tmpfile_paths_.metadata = tmpdir_->filePath("metadata.ini");
     // clang-format off
@@ -250,10 +269,10 @@ void MainWindow::retrieve_metadata_() {
               << tmpfile_paths_.metadata;
     // clang-format on
     process_->start("ffmpeg", arguments, false);
-    connect(process_, &ProcessWidget::finished_success, this, &MainWindow::add_chapters_);
+    connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->add_chapters_(); }),
+            impl_::ONESHOT_AUTO_CONNECTION);
 }
 void MainWindow::add_chapters_() {
-    disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::add_chapters_);
     QFile metadata_file(tmpfile_paths_.metadata);
     if (not metadata_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
         QMessageBox::critical(this, tr("file open error"),
@@ -295,10 +314,10 @@ void MainWindow::add_chapters_() {
     //     tmpfile_paths_.metadata}, true);
 
     process_->start("ffmpeg", arguments, true);
-    connect(process_, &ProcessWidget::finished_success, this, &MainWindow::cleanup_after_saving_);
+    connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->cleanup_after_saving_(); }),
+            impl_::ONESHOT_AUTO_CONNECTION);
 }
 void MainWindow::cleanup_after_saving_() {
-    disconnect(process_, &ProcessWidget::finished_success, this, &MainWindow::cleanup_after_saving_);
     delete tmpdir_;
     tmpdir_ = nullptr;
 }
