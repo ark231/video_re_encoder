@@ -20,7 +20,8 @@ ProcessWidget::~ProcessWidget() {
     thread_.wait();
 }
 
-void ProcessWidget::start(const QString &command, const QStringList &arguments, bool is_final) {
+void ProcessWidget::start(const QString &command, const QStringList &arguments, bool is_final,
+                          ProcessWidget::ProgressParams progress_params) {
     if (process_ != nullptr) {
         process_->deleteLater();
     }
@@ -76,6 +77,17 @@ void ProcessWidget::start(const QString &command, const QStringList &arguments, 
     stderr_layout->addWidget(stderr_textedit);
     current_stderr_tab_idx_ = ui_->tab_stderr_commands->addTab(stderr_content, command);
     ui_->tab_stderr_commands->setCurrentIndex(current_stderr_tab_idx_);
+
+    current_progress_params_ = progress_params;
+    if (current_progress_params_.is_active()) {
+        ui_->progressBar->show();
+        ui_->progressBar->setEnabled(true);
+        ui_->progressBar->setMinimum(current_progress_params_.min);
+        ui_->progressBar->setMaximum(current_progress_params_.max);
+        ui_->progressBar->reset();
+    } else {
+        ui_->progressBar->hide();
+    }
 
     ui_->label_status->setText(tr("Starting %1").arg(command));
 
@@ -134,16 +146,30 @@ void ProcessWidget::update_stdout_() {
     auto textedit = stdout_textedit_of_(current_stdout_tab_idx_);
     auto cursor = textedit->textCursor();
     textedit->moveCursor(QTextCursor::End);
-    textedit->insertPlainText(QString::fromUtf8(process_->readAll()));  // NOTE: from utf8!!!
+    auto new_text = QString::fromUtf8(process_->readAll());  // NOTE: from utf8!!!
+    textedit->insertPlainText(new_text);
     textedit->setTextCursor(cursor);
+    if (current_progress_params_.is_active()) {
+        int new_value = current_progress_params_.calc_progress(new_text, QStringLiteral(""));
+        if (current_progress_params_.min <= new_value && new_value <= current_progress_params_.max) {
+            ui_->progressBar->setValue(new_value);
+        }
+    }
 }
 void ProcessWidget::update_stderr_() {
     process_->setReadChannel(QProcess::StandardError);
     auto textedit = stderr_textedit_of_(current_stderr_tab_idx_);
     auto cursor = textedit->textCursor();
     textedit->moveCursor(QTextCursor::End);
-    textedit->insertPlainText(QString::fromUtf8(process_->readAll()));  // NOTE: from utf8!!!
+    auto new_text = QString::fromUtf8(process_->readAll());  // NOTE: from utf8!!!
+    textedit->insertPlainText(new_text);
     textedit->setTextCursor(cursor);
+    if (current_progress_params_.is_active()) {
+        int new_value = current_progress_params_.calc_progress(QStringLiteral(""), new_text);
+        if (current_progress_params_.min <= new_value && new_value <= current_progress_params_.max) {
+            ui_->progressBar->setValue(new_value);
+        }
+    }
 }
 void ProcessWidget::kill_process_() {
     emit sigkill();  // this call blocks
@@ -151,6 +177,7 @@ void ProcessWidget::kill_process_() {
 void ProcessWidget::enable_closing_() {
     ui_->pushButton_close->setEnabled(true);
     ui_->pushButton_kill->setEnabled(false);
+    ui_->progressBar->hide();
 }
 void ProcessWidget::show_error_(QProcess::ProcessError) {
     QMessageBox::critical(this, tr("error"), tr("error: %1").arg(process_->errorString()));

@@ -41,6 +41,7 @@ class MainWindow : public QMainWindow {
     QSettings *settings_ = nullptr;
     QVector<std::tuple<QString, double, QString>> filename_duration_chaptername_tuples_;
     std::tuple<QString, double, QString> current_filename_duration_chaptername_tuple_;
+    std::chrono::duration<int, std::milli> total_length_;
     std::optional<QString> chaptername_plugin_ = std::nullopt;
     static constexpr auto NO_PLUGIN = "do not use any plugins";
 #ifdef _WIN32

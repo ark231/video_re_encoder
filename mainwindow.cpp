@@ -19,6 +19,7 @@
 #include <QMetaEnum>
 #include <QPair>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QTextStream>
@@ -228,6 +229,25 @@ void MainWindow::confirm_chaptername_() {
         concatenate_videos_();
     }
 }
+namespace impl_ {
+int decode_ffmpeg(QStringView, QStringView new_stderr) {
+    QRegularExpression time_pattern(R"(time=(?<hours>\d\d):(?<minutes>\d\d):(?<seconds>\d\d).(?<centiseconds>\d\d))");
+    auto match = time_pattern.match(new_stderr);
+    if (not match.hasMatch()) {
+        return -1;
+    }
+    using std::chrono::duration_cast;
+    using std::chrono::hours;
+    using std::chrono::minutes;
+    using std::chrono::seconds;
+    using centiseconds = std::chrono::duration<int, std::centi>;
+    using std::chrono::milliseconds;
+    return duration_cast<milliseconds>(
+               hours(match.captured("hours").toInt()) + minutes(match.captured("minutes").toInt()) +
+               seconds(match.captured("seconds").toInt()) + centiseconds(match.captured("centiseconds").toInt()))
+        .count();
+}
+}  // namespace impl_
 void MainWindow::concatenate_videos_() {
     tmpdir_ = new QTemporaryDir();
     if (not tmpdir_->isValid()) {
@@ -242,9 +262,15 @@ void MainWindow::concatenate_videos_() {
             tr("failed to open file [%1]. QFile::error(): %2").arg(concat_file.fileName()).arg(concat_file.error()));
         return;
     }
+    using std::chrono::duration_cast;
+    using milliseconds = std::chrono::duration<int, std::milli>;
+    using seconds = std::chrono::duration<double>;
+    using namespace std::chrono_literals;
     QTextStream concat_file_stream(&concat_file);
+    total_length_ = 0ms;
     for (const auto &[filename, duration, chaptername] : filename_duration_chaptername_tuples_) {
         concat_file_stream << "file '" << filename << "'\n";
+        total_length_ += duration_cast<milliseconds>(seconds(duration));
     }
     concat_file.close();
     QStringList arguments;
@@ -256,7 +282,7 @@ void MainWindow::concatenate_videos_() {
               << "-c" << "copy" 
               << tmpfile_paths_.concatenated;
     // clang-format on
-    process_->start("ffmpeg", arguments, false);
+    process_->start("ffmpeg", arguments, false, {0, total_length_.count(), impl_::decode_ffmpeg});
     connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->retrieve_metadata_(); }),
             impl_::ONESHOT_AUTO_CONNECTION);
 }
@@ -313,7 +339,7 @@ void MainWindow::add_chapters_() {
     //     "py", {"-c", "import time;[print(i,flush=True) or time.sleep(1) for i in range(120)]",
     //     tmpfile_paths_.metadata}, true);
 
-    process_->start("ffmpeg", arguments, true);
+    process_->start("ffmpeg", arguments, true, {0, total_length_.count(), impl_::decode_ffmpeg});
     connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->cleanup_after_saving_(); }),
             impl_::ONESHOT_AUTO_CONNECTION);
 }
