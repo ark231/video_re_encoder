@@ -4,6 +4,7 @@
 #include <QProcess>
 #include <QTextEdit>
 #include <QTextStream>
+#include <QTime>
 
 #include "ui_processwidget.h"
 
@@ -85,8 +86,11 @@ void ProcessWidget::start(const QString &command, const QStringList &arguments, 
         ui_->progressBar->setMinimum(current_progress_params_.min);
         ui_->progressBar->setMaximum(current_progress_params_.max);
         ui_->progressBar->reset();
+        ui_->label_remaining->show();
+        ui_->label_remaining->setEnabled(true);
     } else {
         ui_->progressBar->hide();
+        ui_->label_remaining->hide();
     }
 
     ui_->label_status->setText(tr("Starting %1").arg(command));
@@ -149,12 +153,7 @@ void ProcessWidget::update_stdout_() {
     auto new_text = QString::fromUtf8(process_->readAll());  // NOTE: from utf8!!!
     textedit->insertPlainText(new_text);
     textedit->setTextCursor(cursor);
-    if (current_progress_params_.is_active()) {
-        int new_value = current_progress_params_.calc_progress(new_text, QStringLiteral(""));
-        if (current_progress_params_.min <= new_value && new_value <= current_progress_params_.max) {
-            ui_->progressBar->setValue(new_value);
-        }
-    }
+    update_progress_(new_text, QStringLiteral(""));
 }
 void ProcessWidget::update_stderr_() {
     process_->setReadChannel(QProcess::StandardError);
@@ -164,12 +163,7 @@ void ProcessWidget::update_stderr_() {
     auto new_text = QString::fromUtf8(process_->readAll());  // NOTE: from utf8!!!
     textedit->insertPlainText(new_text);
     textedit->setTextCursor(cursor);
-    if (current_progress_params_.is_active()) {
-        int new_value = current_progress_params_.calc_progress(QStringLiteral(""), new_text);
-        if (current_progress_params_.min <= new_value && new_value <= current_progress_params_.max) {
-            ui_->progressBar->setValue(new_value);
-        }
-    }
+    update_progress_(QStringLiteral(""), new_text);
 }
 void ProcessWidget::kill_process_() {
     emit sigkill();  // this call blocks
@@ -178,6 +172,7 @@ void ProcessWidget::enable_closing_() {
     ui_->pushButton_close->setEnabled(true);
     ui_->pushButton_kill->setEnabled(false);
     ui_->progressBar->hide();
+    ui_->label_remaining->hide();
 }
 void ProcessWidget::show_error_(QProcess::ProcessError) {
     QMessageBox::critical(this, tr("error"), tr("error: %1").arg(process_->errorString()));
@@ -192,4 +187,23 @@ QTextEdit *ProcessWidget::stdout_textedit_of_(int idx) {
 }
 QTextEdit *ProcessWidget::stderr_textedit_of_(int idx) {
     return qobject_cast<QTextEdit *>(ui_->tab_stderr_commands->widget(idx)->layout()->itemAt(0)->widget());
+}
+
+void ProcessWidget::update_progress_(QStringView stdout_text, QStringView stderr_text) {
+    if (current_progress_params_.is_active()) {
+        int new_value = current_progress_params_.calc_progress(stdout_text, stderr_text);
+        if (current_progress_params_.min <= new_value && new_value <= current_progress_params_.max) {
+            ui_->progressBar->setValue(new_value);
+            using Clock = ProcessWidget::ProgressParams::Clock;
+            using std::chrono::duration_cast, std::chrono::milliseconds;
+            auto maybe_estimated = current_progress_params_.estimate_remaining(new_value, Clock::now());
+            if (not maybe_estimated.has_value()) {
+                return;
+            }
+            auto estimated = maybe_estimated.value();
+            ui_->label_remaining->setText(
+                QTime::fromMSecsSinceStartOfDay(duration_cast<milliseconds>(estimated).count())
+                    .toString(tr("hh'h'mm'm'ss's'")));
+        }
+    }
 }

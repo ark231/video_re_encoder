@@ -6,7 +6,10 @@
 #include <QStringLiteral>
 #include <QThread>
 #include <QWidget>
+#include <chrono>
 #include <functional>
+#include <list>
+#include <numeric>
 #include <optional>
 
 namespace Ui {
@@ -22,13 +25,27 @@ class ProcessWidget : public QWidget {
     explicit ProcessWidget(QWidget *parent = nullptr, Qt::WindowFlags flags = Qt::WindowFlags());
     ~ProcessWidget();
     class ProgressParams {
+       public:
+        using Clock = std::chrono::high_resolution_clock;
+        using TimePoint = Clock::time_point;
+        // using Duration = std::chrono::nanoseconds;
+        using Duration = std::chrono::duration<double, std::nano>;
+        using ValueType = int;
+
+       private:
         bool is_active_;
-        std::function<int(QStringView, QStringView)> calc_progress_;
+        std::function<ValueType(QStringView, QStringView)> calc_progress_;
+        static constexpr int MAX_NUM_SAMPLES = 20;
+        using Speed = double;  // ValueType/Duration
+        std::list<Speed> samples_;
+        TimePoint previous_time_;
+        ValueType previous_value_;
+        bool estimation_is_initialized_ = false;
 
        public:
-        int min;
-        int max;
-        ProgressParams(int min = 0, int max = 100,
+        ValueType min;
+        ValueType max;
+        ProgressParams(ValueType min = 0, ValueType max = 100,
                        std::optional<decltype(calc_progress_)> calc_progress = std::nullopt) {
             this->min = min;
             this->max = max;
@@ -38,9 +55,27 @@ class ProcessWidget : public QWidget {
             }
         }
         bool is_active() { return is_active_; }
-        int calc_progress(QStringView stdout_text, QStringView stderr_text) {
+        ValueType calc_progress(QStringView stdout_text, QStringView stderr_text) {
             Q_ASSERT(this->is_active());
             return calc_progress_(stdout_text, stderr_text);
+        }
+        std::optional<Duration> estimate_remaining(int new_value, TimePoint now) {
+            if (not estimation_is_initialized_) {
+                previous_value_ = new_value;
+                previous_time_ = now;
+                estimation_is_initialized_ = true;
+                return std::nullopt;
+            }
+            if (samples_.size() >= MAX_NUM_SAMPLES) {
+                samples_.pop_front();
+            }
+            using std::chrono::duration_cast;
+            samples_.push_back(static_cast<double>(new_value - previous_value_) /
+                               duration_cast<Duration>(now - previous_time_).count());
+            previous_value_ = new_value;
+            previous_time_ = now;
+            Speed average_speed = std::accumulate(samples_.begin(), samples_.end(), Speed(0)) / samples_.size();
+            return Duration((max - new_value) / average_speed);
         }
     };
     /**
@@ -112,6 +147,7 @@ class ProcessWidget : public QWidget {
    private:
     QTextEdit *stdout_textedit_of_(int idx);
     QTextEdit *stderr_textedit_of_(int idx);
+    void update_progress_(QStringView stdout_text, QStringView stderr_text);
 };
 
 #endif  // PROCESSWIDGET_HPP
