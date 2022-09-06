@@ -29,6 +29,7 @@
 #include <chrono>
 #include <ciso646>
 #include <functional>
+#include <stdexcept>
 
 #include "./ui_mainwindow.h"
 #include "listdialog.hpp"
@@ -167,7 +168,7 @@ void MainWindow::probe_for_duration_() {
             impl_::ONESHOT_AUTO_CONNECTION);
 }
 void MainWindow::register_duration_() {
-    QString filename = ui_->listWidget_filenames->item(current_index_)->text();
+    QString filepath = ui_->listWidget_filenames->item(current_index_)->text();
     QRegularExpression ffprobe_extractor(R"(format\|duration=([0-9.]+))");
     auto match = ffprobe_extractor.match(process_->get_stdout());
     if (not match.hasMatch()) {
@@ -183,28 +184,104 @@ void MainWindow::register_duration_() {
                               tr("failed to parse duration [%1]").arg(match.captured(1)));
         return;
     }
-    current_filename_duration_chaptername_tuple_ = {filename, duration, ""};
-    create_chaptername_();
+    current_file_info_ = {filepath, FileInfo::seconds(duration), {}};
+    tmpfile_paths_.current_src_metadata = tmpdir_->filePath(QStringLiteral("metadata%1.ini").arg(file_infos_.size()));
+    retrieve_metadata_(current_file_info_.path, tmpfile_paths_.current_src_metadata, [=] { this->check_metadata_(); });
 }
-void MainWindow::create_chaptername_() {
+QVector<MainWindow::FileInfo::ChapterInfo> MainWindow::retrieve_chapters_(QString src_filename) {
+    QFile src_file(src_filename);
+    if (not src_file.open(QFile::ReadOnly | QFile::Text)) {
+        throw std::runtime_error(tr("error: failed to open file [%1]").arg(src_filename).toStdString());
+    }
+    QTextStream src_stream(&src_file);
+    auto metadata = src_stream.readAll().split("\n");
+    auto metadata_line_iter = metadata.begin();
+    QVector<MainWindow::FileInfo::ChapterInfo> result;
+    QRegularExpression section_pattern(R"(\[(?<name>.+)\])");
+    QRegularExpression keyvalue_pattern("(?<key>[^=]+)=(?<value>.+)");
+    bool is_in_chapter_section = false;
+    for (; metadata_line_iter != metadata.end(); metadata_line_iter++) {
+        auto match = section_pattern.match(*metadata_line_iter);
+        if (match.hasMatch()) {
+            if (match.captured("name") == "CHAPTER") {
+                is_in_chapter_section = true;
+                result.push_back({1, 1'000'000'000, 0, 0, ""});
+            } else {
+                is_in_chapter_section = false;
+            }
+            continue;
+        }
+        if (not is_in_chapter_section) {
+            continue;
+        }
+        match = keyvalue_pattern.match(*metadata_line_iter);
+        if (not match.hasMatch()) {
+            continue;
+        }
+        auto key = match.captured("key").toUpper();  // ignore case
+        auto value = match.captured("value");
+        if (key == "TIMEBASE") {
+            result.back().timebase_numerator = value.split("/")[0].toInt();
+            result.back().timebase_denominator = value.split("/")[1].toInt();
+        } else if (key == "START") {
+            result.back().start_time = value.toInt();
+        } else if (key == "END") {
+            result.back().end_time = value.toInt();
+        } else if (key == "TITLE") {
+            result.back().title = value;
+        }
+    }
+    return result;
+}
+void MainWindow::check_metadata_() {
+    decltype(retrieve_chapters_("")) chapters;
+    try {
+        chapters = retrieve_chapters_(tmpfile_paths_.current_src_metadata);
+    } catch (std::exception &e) {
+        QMessageBox::critical(this, tr("error"), QString::fromStdString(e.what()));
+        return;
+    }
+    if (chapters.isEmpty()) {
+        create_chapter_();
+    } else {
+        current_file_info_.chapters = chapters;
+        register_file_info_();
+    }
+}
+void MainWindow::create_chapter_() {
+    using std::chrono::duration_cast;
+    using std::chrono::microseconds;
+    current_file_info_.chapters.push_back(
+        {1, 1'000'000, 0, duration_cast<microseconds>(current_file_info_.duration).count(), ""});
     QString filename = QUrl::fromLocalFile(ui_->listWidget_filenames->item(current_index_)->text()).fileName();
     if (chaptername_plugin_.has_value()) {
-        process_->start(PYTHON,
-                        {chaptername_plugin_.value(), filename,
-                         QString::number(std::get<1>(current_filename_duration_chaptername_tuple_), 'g', 10)},
-                        false);
-        connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->register_chaptername_(); }),
+        process_->start(
+            PYTHON,
+            {chaptername_plugin_.value(), filename, QString::number(current_file_info_.duration.count(), 'g', 10)},
+            false);
+        connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->register_chapter_title_(); }),
                 impl_::ONESHOT_AUTO_CONNECTION);
     } else {
-        std::get<2>(current_filename_duration_chaptername_tuple_) = filename;
-        register_chaptername_();
+        current_file_info_.chapters[0].title = filename;
+        register_file_info_();
     }
 }
-void MainWindow::register_chaptername_() {
-    if (chaptername_plugin_.has_value()) {
-        std::get<2>(current_filename_duration_chaptername_tuple_) = process_->get_stdout().remove('\n');
+void MainWindow::register_chapter_title_() {
+    current_file_info_.chapters[0].title = process_->get_stdout().remove('\n');
+    register_file_info_();
+}
+void MainWindow::register_file_info_() {
+    FileInfo::seconds raw_offset(0.0);
+    for (const auto &file_info : file_infos_) {
+        raw_offset += file_info.duration;
     }
-    filename_duration_chaptername_tuples_.push_back(current_filename_duration_chaptername_tuple_);
+    for (auto &chapter : current_file_info_.chapters) {
+        auto timebase = static_cast<double>(chapter.timebase_numerator) / chapter.timebase_denominator;
+        qint64 offset = raw_offset.count() / timebase;
+        chapter.start_time += offset;
+        chapter.end_time += offset;
+    }
+    file_infos_.push_back(current_file_info_);
     if (current_index_ == ui_->listWidget_filenames->count() - 1) {
         confirm_chaptername_();
     } else {
@@ -215,16 +292,22 @@ void MainWindow::register_chaptername_() {
 void MainWindow::confirm_chaptername_() {
     bool confirmed;
     QStringList created_chapternames;
-    for (const auto &[filename, duration, chaptername] : filename_duration_chaptername_tuples_) {
-        created_chapternames << chaptername;
+    for (const auto &file_info : file_infos_) {
+        for (const auto &chapter : file_info.chapters) {
+            created_chapternames << chapter.title;
+        }
     }
     QStringList confirmed_chapternames =
         ListDialog::get_texts(nullptr, tr("confirm chapternames"),
                               tr("Chapter names of result video will be texts below.The texts are editable."),
                               created_chapternames, &confirmed);
     if (confirmed) {
-        for (int i = 0; i < filename_duration_chaptername_tuples_.size(); i++) {
-            std::get<2>(filename_duration_chaptername_tuples_[i]) = confirmed_chapternames[i];
+        auto confirmed_chaptername_iter = confirmed_chapternames.constBegin();
+        for (auto &file_info : file_infos_) {
+            for (auto &chapter : file_info.chapters) {
+                chapter.title = *confirmed_chaptername_iter;
+                confirmed_chaptername_iter++;
+            }
         }
         concatenate_videos_();
     }
@@ -249,7 +332,6 @@ int decode_ffmpeg(QStringView, QStringView new_stderr) {
 }
 }  // namespace impl_
 void MainWindow::concatenate_videos_() {
-    tmpdir_ = new QTemporaryDir();
     if (not tmpdir_->isValid()) {
         QMessageBox::critical(this, tr("temporary directory error"),
                               tr("failed to create temporary directory \n%1").arg(tmpdir_->errorString()));
@@ -268,9 +350,9 @@ void MainWindow::concatenate_videos_() {
     using namespace std::chrono_literals;
     QTextStream concat_file_stream(&concat_file);
     total_length_ = 0ms;
-    for (const auto &[filename, duration, chaptername] : filename_duration_chaptername_tuples_) {
-        concat_file_stream << "file '" << filename << "'\n";
-        total_length_ += duration_cast<milliseconds>(seconds(duration));
+    for (const auto &file_info : file_infos_) {
+        concat_file_stream << "file '" << file_info.path << "'\n";
+        total_length_ += duration_cast<milliseconds>(file_info.duration);
     }
     concat_file.close();
     QStringList arguments;
@@ -283,20 +365,22 @@ void MainWindow::concatenate_videos_() {
               << tmpfile_paths_.concatenated;
     // clang-format on
     process_->start("ffmpeg", arguments, false, {0, total_length_.count(), impl_::decode_ffmpeg});
-    connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->retrieve_metadata_(); }),
+    tmpfile_paths_.metadata = tmpdir_->filePath("metadata.ini");
+    connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] {
+                this->retrieve_metadata_(this->tmpfile_paths_.concatenated, this->tmpfile_paths_.metadata,
+                                         [=] { this->add_chapters_(); });
+            }),
             impl_::ONESHOT_AUTO_CONNECTION);
 }
-void MainWindow::retrieve_metadata_() {
+void MainWindow::retrieve_metadata_(QString src_filepath, QString dst_filepath, std::function<void(void)> on_success) {
     QStringList arguments;
-    tmpfile_paths_.metadata = tmpdir_->filePath("metadata.ini");
     // clang-format off
-    arguments << "-i" << tmpfile_paths_.concatenated 
+    arguments << "-i" << src_filepath
               << "-f" << "ffmetadata" 
-              << tmpfile_paths_.metadata;
+              << dst_filepath;
     // clang-format on
     process_->start("ffmpeg", arguments, false);
-    connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->add_chapters_(); }),
-            impl_::ONESHOT_AUTO_CONNECTION);
+    connect(process_, &ProcessWidget::finished, this, impl_::OnTrue(on_success), impl_::ONESHOT_AUTO_CONNECTION);
 }
 void MainWindow::add_chapters_() {
     QFile metadata_file(tmpfile_paths_.metadata);
@@ -309,19 +393,17 @@ void MainWindow::add_chapters_() {
     }
     QTextStream metadata_stream(&metadata_file);
     metadata_stream << Qt::endl;
-    using namespace std::chrono_literals;
     using micro_seconds = std::chrono::duration<double, std::micro>;
     using std::chrono::duration_cast;
-    auto start = 0.0s;
-    for (const auto &[filename, raw_duration, chaptername] : filename_duration_chaptername_tuples_) {
-        std::chrono::duration<double> duration(raw_duration);
-        metadata_stream << "[CHAPTER]" << Qt::endl;
-        metadata_stream << "TIMEBASE=1/1000000" << Qt::endl;
-        metadata_stream << "START=" << static_cast<quint64>(duration_cast<micro_seconds>(start).count()) << Qt::endl;
-        metadata_stream << "END=" << static_cast<quint64>(duration_cast<micro_seconds>(start + duration).count())
-                        << Qt::endl;
-        metadata_stream << "TITLE=" << chaptername << Qt::endl;
-        start += duration;
+    for (const auto &file_info : file_infos_) {
+        for (const auto &chapter : file_info.chapters) {
+            metadata_stream << "[CHAPTER]" << Qt::endl;
+            metadata_stream << "TIMEBASE=" << chapter.timebase_numerator << "/" << chapter.timebase_denominator
+                            << Qt::endl;
+            metadata_stream << "START=" << chapter.start_time << Qt::endl;
+            metadata_stream << "END=" << chapter.end_time << Qt::endl;
+            metadata_stream << "TITLE=" << chapter.title << Qt::endl;
+        }
     }
     metadata_file.close();
 
@@ -353,7 +435,8 @@ void MainWindow::start_saving_() {
     process_->setAttribute(Qt::WA_DeleteOnClose, true);
     process_->show();
 
-    filename_duration_chaptername_tuples_.clear();
+    tmpdir_ = new QTemporaryDir();
+    file_infos_.clear();
     current_index_ = 0;
     create_savefile_name_();
 }
