@@ -28,8 +28,13 @@
 #include <QVector>
 #include <chrono>
 #include <ciso646>
+#include <cuchar>
+#include <filesystem>
 #include <functional>
+#include <iomanip>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 
 #include "./ui_mainwindow.h"
 #include "listdialog.hpp"
@@ -79,8 +84,118 @@ class OnTrue {
         }
     }
 };
+constexpr auto INVALID_SIZE = static_cast<std::uintmax_t>(-1);
+#ifndef __STDC_UTF_16__
+static_assert(false, "encoding of char16_t is not guaranteed to be UTF-16");
+#endif
+QString format_size(std::uintmax_t size) {
+    // NOLINTBEGIN(readability-identifier-naming)
+    constexpr double KiB = 1024;
+    constexpr double MiB = 1024 * KiB;
+    constexpr double GiB = 1024 * MiB;
+    // NOLINTEND(readability-identifier-naming)
+    std::stringstream result;
+    result << std::fixed << std::setprecision(2);
+    if (size == INVALID_SIZE) {
+        result << "N/A";
+    } else if (size < 1 * KiB) {
+        result << size << "B";
+    } else if (size < 1 * MiB) {
+        result << (size / KiB) << "KiB";
+    } else if (size < 1 * GiB) {
+        result << (size / MiB) << "MiB";
+    } else {
+        result << (size / GiB) << "GiB";
+    }
+    return QString::fromStdString(result.str());
+}
+QString format_path(std::filesystem::path path) {
+    if (path.empty()) {
+        return "N/A";
+    } else {
+        return QString::fromStdU16String(path.u16string());
+    }
+}
 }  // namespace impl_
-
+void MainWindow::show_size_() {
+    namespace fs = std::filesystem;
+    std::uintmax_t tmpdir_available_size = impl_::INVALID_SIZE;
+    fs::path tmpdir{};
+    std::uintmax_t dstdir_available_size = impl_::INVALID_SIZE;
+    fs::path dstdir{};
+    std::uintmax_t estimated_result_size = impl_::INVALID_SIZE;
+    bool error_has_ocurred = false;
+    auto on_error = [&error_has_ocurred](std::exception &e) {
+        QMessageBox::critical(nullptr, tr("error"), QString::fromLocal8Bit(e.what()));
+        error_has_ocurred = true;
+    };
+    try {
+        tmpdir = fs::canonical(tmpdir_->path().toStdU16String());
+        auto tmpdir_size = fs::space(tmpdir).available;
+        if (tmpdir_size != static_cast<std::uintmax_t>(-1)) {
+            tmpdir_available_size = tmpdir_size;
+        }
+    } catch (std::exception &e) {
+        on_error(e);
+    }
+    for (auto i = 0; i < ui_->listWidget_filenames->count(); i++) {
+        fs::path filepath{};
+        try {
+            filepath = ui_->listWidget_filenames->item(i)->text().toStdU16String();
+            filepath = fs::canonical(filepath);
+        } catch (std::exception &e) {
+            on_error(e);
+            continue;  // 以下の処理はfilepathに依存する
+        }
+        if (i == 0) {
+            try {
+                dstdir = filepath.parent_path();
+                auto dstdir_size = fs::space(dstdir).available;
+                if (dstdir_size != static_cast<std::uintmax_t>(-1)) {
+                    dstdir_available_size = dstdir_size;
+                }
+            } catch (std::exception &e) {
+                on_error(e);
+            }
+        }
+        try {
+            auto size = fs::file_size(filepath);
+            if (estimated_result_size == impl_::INVALID_SIZE) {
+                estimated_result_size = size;
+            } else {
+                estimated_result_size += size;
+            }
+        } catch (std::exception &e) {
+            on_error(e);
+        }
+    }
+    QString message;
+    message += "<h1>" + tr("size informations") + "</h1>";
+    message += "<p>";
+    message += (error_has_ocurred ? tr("warning: some error has ocurred. result may be incorrect")
+                                  : tr("no error has ocurred"));
+    message += "</p>";
+    message += "<h2>" + tr("necessary space") + "</h2>";
+    message += "<p>";
+    message += tr("estimated result size: %1").arg(impl_::format_size(estimated_result_size)) + "<br>";
+    message += tr("(2*estimated result size: %1)").arg(impl_::format_size(2 * estimated_result_size));
+    message += "</p>";
+    message += "<h2>" + tr("available space") + "</h2>";
+    message += "<p>";
+    message += tr("%1: %2").arg(impl_::format_path(tmpdir)).arg(impl_::format_size(tmpdir_available_size)) + "<br>";
+    message += tr("%1: %2").arg(impl_::format_path(dstdir)).arg(impl_::format_size(dstdir_available_size));
+    message += "</p>";
+    message += "<p>" + tr("do you want to proceed?") + "</p>";
+    switch (QMessageBox::question(nullptr, "size info", message)) {
+        case QMessageBox::Yes:
+            create_savefile_name_();
+            break;
+        case QMessageBox::No:
+            break;
+        default:
+            Q_UNREACHABLE();
+    }
+}
 void MainWindow::create_savefile_name_() {
     QString filename = QUrl::fromLocalFile(ui_->listWidget_filenames->item(current_index_)->text()).fileName();
     if (settings_->contains("savefile_name_plugin") && settings_->value("savefile_name_plugin") != NO_PLUGIN) {
@@ -438,7 +553,7 @@ void MainWindow::start_saving_() {
     tmpdir_ = new QTemporaryDir();
     file_infos_.clear();
     current_index_ = 0;
-    create_savefile_name_();
+    show_size_();
 }
 void MainWindow::save_result_() {
     if (ui_->listWidget_filenames->count() == 0) {

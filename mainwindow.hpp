@@ -85,6 +85,7 @@ class MainWindow : public QMainWindow {
 
     // steps for creating and saving result
     void start_saving_();
+    void show_size_();
     void create_savefile_name_();
     void confirm_savefile_name_();
     void confirm_chaptername_plugin_();
