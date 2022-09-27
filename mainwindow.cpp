@@ -90,9 +90,11 @@ static_assert(false, "encoding of char16_t is not guaranteed to be UTF-16");
 #endif
 QString format_size(std::uintmax_t size) {
     // NOLINTBEGIN(readability-identifier-naming)
+    // these will divide size, so shouldn't be integral type. Otherwise, result will be rounded.
     constexpr double KiB = 1024;
     constexpr double MiB = 1024 * KiB;
     constexpr double GiB = 1024 * MiB;
+    constexpr double TiB = 1024 * GiB;
     // NOLINTEND(readability-identifier-naming)
     std::stringstream result;
     result << std::fixed << std::setprecision(2);
@@ -104,8 +106,10 @@ QString format_size(std::uintmax_t size) {
         result << (size / KiB) << "KiB";
     } else if (size < 1 * GiB) {
         result << (size / MiB) << "MiB";
-    } else {
+    } else if (size < 1 * TiB) {
         result << (size / GiB) << "GiB";
+    } else {
+        result << (size / TiB) << "TiB";
     }
     return QString::fromStdString(result.str());
 }
