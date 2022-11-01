@@ -35,6 +35,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <timedialog.hpp>
 
 #include "./ui_mainwindow.h"
 #include "listdialog.hpp"
@@ -47,6 +48,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     connect(ui_->pushButton_save, &QPushButton::pressed, this, &MainWindow::save_result_);
     connect(ui_->actiondefault_extractor, &QAction::triggered, this, &MainWindow::select_default_chaptername_plugin_);
     connect(ui_->actionsavefile_name_generator, &QAction::triggered, this, &MainWindow::select_savefile_name_plugin_);
+    connect(ui_->actioneffective_period_of_cache, &QAction::triggered, this,
+            &MainWindow::update_effective_period_of_cache_);
     QDir settings_dir(QApplication::applicationDirPath() + "/settings");
     if (QDir().mkpath(settings_dir.absolutePath())) {  // QDir::mkpath() returns true even when path already exists
         settings_ = new QSettings(settings_dir.filePath("settings.ini"), QSettings::IniFormat);
@@ -62,11 +65,49 @@ MainWindow::~MainWindow() {
         delete tmpdir_;
     }
 }
+QUrl MainWindow::read_video_dir_cache_() {
+    settings_->beginGroup("video_dir_cache");
+    auto last_saved = settings_->value("last_saved").toDateTime().toMSecsSinceEpoch();
+    auto effective_period = settings_->value("effective_period").toTime().msecsSinceStartOfDay();
+    auto dir = settings_->value("dir").toUrl();
+    settings_->endGroup();
+    if (QDateTime::currentDateTime().toMSecsSinceEpoch() - last_saved < effective_period) {
+        return dir;
+    } else {
+        return QUrl();
+    }
+}
+void MainWindow::write_video_dir_cache_(QUrl dir) {
+    settings_->beginGroup("video_dir_cache");
+    settings_->setValue("last_saved", QDateTime::currentDateTime());
+    // effective period is written in update_effective_period_of_cache()
+    settings_->setValue("dir", dir);
+    settings_->endGroup();
+}
+void MainWindow::update_effective_period_of_cache_() {
+    bool confirmed = false;
+    auto period = TimeDialog::get_time(nullptr, tr("effective period of cache"), tr("enter effective period of cache"),
+                                       settings_->value("video_dir_cache/effective_period").toTime(), &confirmed);
+    if (confirmed && period.isValid()) {
+        settings_->setValue("video_dir_cache/effective_period", period);
+    }
+}
 
 void MainWindow::open_video_() {
     auto videodirs = QStandardPaths::standardLocations(QStandardPaths::MoviesLocation);
-    auto filenames = QFileDialog::getOpenFileNames(this, tr("open video file"), videodirs.isEmpty() ? "" : videodirs[0],
-                                                   tr("Videos (*.mp4)"));
+    auto videodir = read_video_dir_cache_();
+    if (videodir.isEmpty() && not videodirs.isEmpty()) {
+        videodir = QUrl::fromLocalFile(videodirs[0]);
+    }
+    auto filenames =
+        QFileDialog::getOpenFileNames(this, tr("open video file"), videodir.toLocalFile(), tr("Videos (*.mp4)"));
+    if (filenames.isEmpty()) {
+        QMessageBox::warning(nullptr, tr("warning"), tr("no file was selected"));
+        return;
+    }
+    QDir filepath{filenames[0]};
+    filepath.cdUp();
+    write_video_dir_cache_(QUrl::fromLocalFile(filepath.path()));
     ui_->listWidget_filenames->addItems(filenames);
     ui_->pushButton_save->setEnabled(true);
 }

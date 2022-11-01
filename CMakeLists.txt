@@ -26,6 +26,9 @@ set(PROJECT_SOURCES
     listdialog.hpp
     listdialog.cpp
     listdialog.ui
+    timedialog.hpp
+    timedialog.cpp
+    timedialog.ui
     ${TS_FILES}
     main_resources.qrc
     $<$<PLATFORM_ID:Windows>:windows.rc>

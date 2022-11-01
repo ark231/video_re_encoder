@@ -65,7 +65,7 @@
      <x>0</x>
      <y>0</y>
      <width>791</width>
-     <height>17</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
@@ -80,6 +80,7 @@
     </property>
     <addaction name="actiondefault_extractor"/>
     <addaction name="actionsavefile_name_generator"/>
+    <addaction name="actioneffective_period_of_cache"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menusettings"/>
@@ -109,6 +110,11 @@
   <action name="actionsavefile_name_generator">
    <property name="text">
     <string>savefile name generator</string>
+   </property>
+  </action>
+  <action name="actioneffective_period_of_cache">
+   <property name="text">
+    <string>effective period of cache</string>
    </property>
   </action>
  </widget>

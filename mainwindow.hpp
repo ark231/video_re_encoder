@@ -28,7 +28,10 @@ class MainWindow : public QMainWindow {
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-   private slots:
+   private:
+    QUrl read_video_dir_cache_();
+    void write_video_dir_cache_(QUrl);
+    void update_effective_period_of_cache_();
 
     void open_video_();
     void save_result_();
