@@ -29,6 +29,12 @@ set(PROJECT_SOURCES
     timedialog.hpp
     timedialog.cpp
     timedialog.ui
+    videoinfowidget.hpp
+    videoinfowidget.cpp
+    videoinfowidget.ui
+    videoinfodialog.hpp
+    videoinfodialog.cpp
+    videoinfodialog.ui
     ${TS_FILES}
     main_resources.qrc
     $<$<PLATFORM_ID:Windows>:windows.rc>

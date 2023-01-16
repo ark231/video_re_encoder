@@ -13,6 +13,9 @@
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
@@ -40,10 +43,14 @@
 #include "./ui_mainwindow.h"
 #include "listdialog.hpp"
 #include "processwidget.hpp"
+#include "videoinfodialog.hpp"
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainWindow) {
     ui_->setupUi(this);
-    ui_->pushButton_save->setEnabled(false);
+#ifndef NDEBUG
+    this->setWindowTitle(QStringLiteral("%1 (debug build)").arg(this->windowTitle()));
+#endif
+
     connect(ui_->actionopen, &QAction::triggered, this, &MainWindow::open_video_);
     connect(ui_->pushButton_save, &QPushButton::pressed, this, &MainWindow::save_result_);
     connect(ui_->actiondefault_extractor, &QAction::triggered, this, &MainWindow::select_default_chaptername_plugin_);
@@ -320,8 +327,7 @@ void MainWindow::confirm_chaptername_plugin_() {
     probe_for_duration_();
 }
 void MainWindow::probe_for_duration_() {
-    QStringList ffprobe_arguments{"-hide_banner", "-show_entries", "format=duration", "-of",
-                                  "compact" /*, "-v", "quiet"*/};
+    QStringList ffprobe_arguments{"-hide_banner", "-show_streams", "-show_format", "-of", "json", "-v", "quiet"};
     QString filename = ui_->listWidget_filenames->item(current_index_)->text();
     process_->start("ffprobe", ffprobe_arguments + QStringList{filename}, false);
     connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->register_duration_(); }),
@@ -329,22 +335,60 @@ void MainWindow::probe_for_duration_() {
 }
 void MainWindow::register_duration_() {
     QString filepath = ui_->listWidget_filenames->item(current_index_)->text();
-    QRegularExpression ffprobe_extractor(R"(format\|duration=([0-9.]+))");
-    auto match = ffprobe_extractor.match(process_->get_stdout());
-    if (not match.hasMatch()) {
-        QMessageBox::critical(
-            this, tr("ffprobe parse error"),
-            tr("failed to parse result of ffprobe\narguments:%1").arg(process_->arguments().join(" ")));
-        return;
-    }
-    bool ok;
-    double duration = match.captured(1).toDouble(&ok);
-    if (not ok) {
+    QRegularExpression fraction_pattern(R"((\d+)/(\d+))");
+    QJsonParseError err;
+    auto prove_result = QJsonDocument::fromJson(process_->get_stdout().toUtf8(), &err);
+    if (prove_result.isNull()) {
         QMessageBox::critical(this, tr("ffprobe parse error"),
-                              tr("failed to parse duration [%1]").arg(match.captured(1)));
+                              tr("failed to parse result of ffprobe\nerror message:%1").arg(err.errorString()));
         return;
     }
-    current_file_info_ = {filepath, FileInfo::seconds(duration), {}};
+    auto duration_str = prove_result.object()["format"].toObject()["duration"].toString();
+    bool ok;
+    double duration = duration_str.toDouble(&ok);
+    if (not ok) {
+        QMessageBox::critical(this, tr("ffprobe parse error"), tr("failed to parse duration [%1]").arg(duration_str));
+        return;
+    }
+    concat::VideoInfo info{};
+    bool video_found = false, audio_found = false;
+    for (auto stream_value : prove_result.object()["streams"].toArray()) {
+        auto stream = stream_value.toObject();
+        if (stream["codec_type"] == "video") {
+            video_found = true;
+            info.video_codec = stream["codec_name"].toString();
+            info.resolution = QSize(stream["width"].toInt(), stream["height"].toInt());
+            auto match = fraction_pattern.match(stream["r_frame_rate"].toString());
+            bool ok1, ok2;
+            info.framerate = static_cast<double>(match.captured(1).toInt(&ok1)) / match.captured(2).toInt(&ok2);
+            if (not(ok1 && ok2)) {
+                QMessageBox::critical(this, tr("ffprobe parse error"),
+                                      tr("failed to parse frame rate [%1]").arg(stream["r_frame_rate"].toString()));
+                return;
+            }
+            match = fraction_pattern.match(stream["avg_frame_rate"].toString());
+            double avg_framerate = static_cast<double>(match.captured(1).toInt(&ok1)) / match.captured(2).toInt(&ok2);
+            if (not(ok1 && ok2)) {
+                QMessageBox::critical(this, tr("ffprobe parse error"),
+                                      tr("failed to parse frame rate [%1]").arg(stream["r_frame_rate"].toString()));
+                return;
+            }
+            info.is_vfr = std::get<double>(info.framerate) != avg_framerate;
+            info.video_codec = stream["codec_name"].toString();
+        } else if (stream["codec_type"] == "audio") {
+            audio_found = true;
+            info.audio_codec = stream["codec_name"].toString();
+        }
+    }
+    if (not video_found) {
+        QMessageBox::critical(this, tr("ffprobe parse error"), tr("video stream was not found"));
+        return;
+    }
+    if (not audio_found) {
+        QMessageBox::critical(this, tr("ffprobe parse error"), tr("audio stream was not found"));
+        return;
+    }
+    current_file_info_ = {filepath, FileInfo::seconds(duration), info, {}};
     tmpfile_paths_.current_src_metadata = tmpdir_->filePath(QStringLiteral("metadata%1.ini").arg(file_infos_.size()));
     retrieve_metadata_(current_file_info_.path, tmpfile_paths_.current_src_metadata, [=] { this->check_metadata_(); });
 }
@@ -443,10 +487,68 @@ void MainWindow::register_file_info_() {
     }
     file_infos_.push_back(current_file_info_);
     if (current_index_ == ui_->listWidget_filenames->count() - 1) {
-        confirm_chaptername_();
+        confirm_video_info_();
     } else {
         current_index_++;
         probe_for_duration_();
+    }
+}
+void MainWindow::confirm_video_info_() {
+    concat::VideoInfo input_info;
+    input_info.audio_codec = QSet<QString>{};
+    input_info.video_codec = QSet<QString>{};
+    for (const auto &file_info : file_infos_) {
+        auto &info = file_info.video_info;
+        if (not std::holds_alternative<concat::ValueRange<QSize>>(input_info.resolution)) {
+            input_info.resolution =
+                concat::ValueRange<QSize>{std::get<QSize>(info.resolution), std::get<QSize>(info.resolution)};
+        } else {
+            auto &current_range = std::get<concat::ValueRange<QSize>>(input_info.resolution);
+            auto calc_area = [](const QSize &size) { return size.width() * size.height(); };  // 縦長と横長の区別は妥協
+            if (calc_area(std::get<QSize>(info.resolution)) > calc_area(current_range.highest)) {
+                current_range.highest = std::get<QSize>(info.resolution);
+            } else if (calc_area(std::get<QSize>(info.resolution)) < calc_area(current_range.lowest)) {
+                current_range.lowest = std::get<QSize>(info.resolution);
+            }
+        }
+        if (not std::holds_alternative<concat::ValueRange<double>>(input_info.framerate)) {
+            input_info.framerate =
+                concat::ValueRange<double>{std::get<double>(info.framerate), std::get<double>(info.framerate)};
+        } else {
+            auto &current_range = std::get<concat::ValueRange<double>>(input_info.framerate);
+            if (std::get<double>(info.framerate) > current_range.highest) {
+                current_range.highest = std::get<double>(info.framerate);
+            } else if (std::get<double>(info.framerate) < current_range.lowest) {
+                current_range.lowest = std::get<double>(info.framerate);
+            }
+        }
+        std::get<QSet<QString>>(input_info.audio_codec) += std::get<QString>(info.audio_codec);
+        std::get<QSet<QString>>(input_info.video_codec) += std::get<QString>(info.video_codec);
+    }
+    bool confirmed = false;
+    output_video_info_ = VideoInfoDialog::get_video_info(nullptr, tr("video info confirmation"),
+                                                         tr("check and edit information about output video"),
+                                                         ui_->videoInfoWidget->info(), input_info, &confirmed);
+    if (std::holds_alternative<concat::SameAsHighest<QSize>>(output_video_info_.resolution)) {
+        output_video_info_.resolution = std::get<concat::SameAsHighest<QSize>>(output_video_info_.resolution).value;
+    }
+    if (std::holds_alternative<concat::SameAsLowest<QSize>>(output_video_info_.resolution)) {
+        output_video_info_.resolution = std::get<concat::SameAsLowest<QSize>>(output_video_info_.resolution).value;
+    }
+    if (std::holds_alternative<concat::SameAsHighest<double>>(output_video_info_.framerate)) {
+        output_video_info_.framerate = std::get<concat::SameAsHighest<double>>(output_video_info_.framerate).value;
+    }
+    if (std::holds_alternative<concat::SameAsLowest<double>>(output_video_info_.framerate)) {
+        output_video_info_.framerate = std::get<concat::SameAsLowest<double>>(output_video_info_.framerate).value;
+    }
+    if (std::holds_alternative<concat::SameAsInput>(output_video_info_.audio_codec)) {
+        output_video_info_.audio_codec = std::get<concat::SameAsInput>(output_video_info_.audio_codec).value;
+    }
+    if (std::holds_alternative<concat::SameAsInput>(output_video_info_.video_codec)) {
+        output_video_info_.video_codec = std::get<concat::SameAsInput>(output_video_info_.video_codec).value;
+    }
+    if (confirmed) {
+        confirm_chaptername_();
     }
 }
 void MainWindow::confirm_chaptername_() {
@@ -515,15 +617,34 @@ void MainWindow::concatenate_videos_() {
         total_length_ += duration_cast<milliseconds>(file_info.duration);
     }
     concat_file.close();
+    bool will_be_re_encoded = false;
+    for (const auto &fileinfo : file_infos_) {
+        qDebug() << "fileinfo.video_info.video_codec: " << std::get<QString>(fileinfo.video_info.video_codec);
+        qDebug() << "output_video_info_.video_codec: " << std::get<QString>(output_video_info_.video_codec);
+        if ((std::get<QSize>(output_video_info_.resolution) != std::get<QSize>(fileinfo.video_info.resolution) ||
+             (std::get<QString>(output_video_info_.audio_codec) !=
+              std::get<QString>(fileinfo.video_info.audio_codec)) ||
+             (std::get<QString>(output_video_info_.video_codec) !=
+              std::get<QString>(fileinfo.video_info.video_codec)))) {
+            will_be_re_encoded = true;
+        }
+    }
+    qDebug() << "will_be_re_encoded: " << will_be_re_encoded;
     QStringList arguments;
     tmpfile_paths_.concatenated = tmpdir_->filePath("concatenated." + QFileInfo(result_path_.toLocalFile()).suffix());
     // clang-format off
     arguments << "-f" << "concat"
               << "-safe" << "0"
-              << "-i" << concat_file.fileName() 
-              << "-c" << "copy" 
+              << "-i" << concat_file.fileName()
+              << "-c:a" << (will_be_re_encoded ? std::get<QString>(output_video_info_.audio_codec) : "copy")
+              << "-c:v" << (will_be_re_encoded ? std::get<QString>(output_video_info_.video_codec) : "copy")
               << tmpfile_paths_.concatenated;
     // clang-format on
+    if (will_be_re_encoded) {
+        auto resolution = std::get<QSize>(output_video_info_.resolution);
+        arguments << "-s" << QStringLiteral("%1x%2").arg(resolution.width()).arg(resolution.height());
+    }
+    arguments += output_video_info_.encoding_args;
     process_->start("ffmpeg", arguments, false, {0, total_length_.count(), impl_::decode_ffmpeg});
     tmpfile_paths_.metadata = tmpdir_->filePath("metadata.ini");
     connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] {

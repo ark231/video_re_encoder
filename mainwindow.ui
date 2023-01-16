@@ -47,7 +47,13 @@
          </widget>
         </item>
         <item>
+         <widget class="VideoInfoWidget" name="videoInfoWidget" native="true"/>
+        </item>
+        <item>
          <widget class="QPushButton" name="pushButton_save">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>save</string>
           </property>
@@ -118,6 +124,14 @@
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>VideoInfoWidget</class>
+   <extends>QWidget</extends>
+   <header>videoinfowidget.hpp</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="main_resources.qrc"/>
  </resources>
