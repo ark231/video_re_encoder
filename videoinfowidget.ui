@@ -27,6 +27,9 @@
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
         <widget class="QComboBox" name="comboBox_framerate">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <item>
           <property name="text">
            <string>same as highest</string>
@@ -65,6 +68,9 @@
          </item>
          <item>
           <widget class="QRadioButton" name="radioButton_vfr">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>vfr (if possible)</string>
            </property>

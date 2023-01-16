@@ -110,3 +110,6 @@ tags
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode
 
 .qt_for_python/
+
+# this project doesn't use python version of Qt
+ui_*.py
