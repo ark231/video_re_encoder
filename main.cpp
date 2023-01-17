@@ -7,6 +7,7 @@
 #endif
 
 #include "mainwindow.hpp"
+#include "videoinfo_stream.hpp"
 
 int main(int argc, char *argv[]) {
 #if defined(_WIN32) && !defined(NDEBUG)
@@ -29,6 +30,8 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
+    qRegisterMetaType<concat::VideoInfo>("concat::VideoInfo");
+
     MainWindow w;
     w.show();
     return a.exec();

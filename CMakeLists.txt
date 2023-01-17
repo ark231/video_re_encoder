@@ -35,6 +35,7 @@ set(PROJECT_SOURCES
     videoinfodialog.hpp
     videoinfodialog.cpp
     videoinfodialog.ui
+    videoinfo_stream.cpp
     ${TS_FILES}
     main_resources.qrc
     $<$<PLATFORM_ID:Windows>:windows.rc>

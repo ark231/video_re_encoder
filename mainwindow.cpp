@@ -45,6 +45,27 @@
 #include "processwidget.hpp"
 #include "videoinfodialog.hpp"
 
+namespace {
+concat::VideoInfo retrieve_input_info(const concat::VideoInfo &info) {
+    auto result = concat::VideoInfo::create_input_info();
+    if (std::holds_alternative<QSize>(info.resolution)) {
+        auto resolution = std::get<QSize>(info.resolution);
+        result.resolution = concat::ValueRange<QSize>{resolution, resolution};
+    }
+    if (std::holds_alternative<double>(info.framerate)) {
+        auto framerate = std::get<double>(info.framerate);
+        result.framerate = concat::ValueRange<double>{framerate, framerate};
+    }
+    if (std::holds_alternative<QString>(info.audio_codec)) {
+        result.audio_codec = QSet<QString>{std::get<QString>(info.audio_codec)};
+    }
+    if (std::holds_alternative<QString>(info.video_codec)) {
+        result.video_codec = QSet<QString>{std::get<QString>(info.video_codec)};
+    }
+    // encoding_argsはinitial_valueで指定すべき
+    return result;
+}
+}  // namespace
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainWindow) {
     ui_->setupUi(this);
 #ifndef NDEBUG
@@ -57,9 +78,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     connect(ui_->actionsavefile_name_generator, &QAction::triggered, this, &MainWindow::select_savefile_name_plugin_);
     connect(ui_->actioneffective_period_of_cache, &QAction::triggered, this,
             &MainWindow::update_effective_period_of_cache_);
+    connect(ui_->actiondefault_video_info, &QAction::triggered, this, &MainWindow::edit_default_video_info_);
     QDir settings_dir(QApplication::applicationDirPath() + "/settings");
     if (QDir().mkpath(settings_dir.absolutePath())) {  // QDir::mkpath() returns true even when path already exists
         settings_ = new QSettings(settings_dir.filePath("settings.ini"), QSettings::IniFormat);
+    }
+    if (settings_->contains("default_video_info")) {
+        auto default_video_info = settings_->value("default_video_info").value<concat::VideoInfo>();
+        ui_->videoInfoWidget->set_infos(default_video_info, retrieve_input_info(default_video_info));
     }
 }
 
@@ -97,6 +123,18 @@ void MainWindow::update_effective_period_of_cache_() {
                                        settings_->value("video_dir_cache/effective_period").toTime(), &confirmed);
     if (confirmed && period.isValid()) {
         settings_->setValue("video_dir_cache/effective_period", period);
+    }
+}
+
+void MainWindow::edit_default_video_info_() {
+    bool confirmed = false;
+    auto default_video_info = settings_->value("default_video_info").value<concat::VideoInfo>();
+    auto default_input_video_info = retrieve_input_info(default_video_info);
+    auto video_info = VideoInfoDialog::get_video_info(
+        nullptr, tr("effective period of cache"), tr("enter effective period of cache"),
+        settings_->value("default_video_info").value<concat::VideoInfo>(), default_input_video_info, &confirmed);
+    if (confirmed) {
+        settings_->setValue("default_video_info", QVariant::fromValue(video_info));
     }
 }
 
@@ -499,7 +537,7 @@ void MainWindow::confirm_video_info_() {
     input_info.video_codec = QSet<QString>{};
     for (const auto &file_info : file_infos_) {
         auto &info = file_info.video_info;
-        if (not std::holds_alternative<concat::ValueRange<QSize>>(input_info.resolution)) {
+        if (not std::holds_alternative<concat::ValueRange<QSize>>(input_info.resolution)) {  // 最初のイテレーション
             input_info.resolution =
                 concat::ValueRange<QSize>{std::get<QSize>(info.resolution), std::get<QSize>(info.resolution)};
         } else {
@@ -526,6 +564,7 @@ void MainWindow::confirm_video_info_() {
         std::get<QSet<QString>>(input_info.video_codec) += std::get<QString>(info.video_codec);
     }
     bool confirmed = false;
+    qDebug() << ui_->videoInfoWidget->info().encoding_args;
     output_video_info_ = VideoInfoDialog::get_video_info(nullptr, tr("video info confirmation"),
                                                          tr("check and edit information about output video"),
                                                          ui_->videoInfoWidget->info(), input_info, &confirmed);
@@ -541,11 +580,11 @@ void MainWindow::confirm_video_info_() {
     if (std::holds_alternative<concat::SameAsLowest<double>>(output_video_info_.framerate)) {
         output_video_info_.framerate = std::get<concat::SameAsLowest<double>>(output_video_info_.framerate).value;
     }
-    if (std::holds_alternative<concat::SameAsInput>(output_video_info_.audio_codec)) {
-        output_video_info_.audio_codec = std::get<concat::SameAsInput>(output_video_info_.audio_codec).value;
+    if (std::holds_alternative<concat::SameAsInput<QString>>(output_video_info_.audio_codec)) {
+        output_video_info_.audio_codec = std::get<concat::SameAsInput<QString>>(output_video_info_.audio_codec).value;
     }
-    if (std::holds_alternative<concat::SameAsInput>(output_video_info_.video_codec)) {
-        output_video_info_.video_codec = std::get<concat::SameAsInput>(output_video_info_.video_codec).value;
+    if (std::holds_alternative<concat::SameAsInput<QString>>(output_video_info_.video_codec)) {
+        output_video_info_.video_codec = std::get<concat::SameAsInput<QString>>(output_video_info_.video_codec).value;
     }
     if (confirmed) {
         confirm_chaptername_();

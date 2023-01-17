@@ -136,7 +136,7 @@ void VideoInfoWidget::set_infos(const concat::VideoInfo &initial_values, const c
     ui_->comboBox_framerate->setCurrentText(initial_text);
     ui_->radioButton_vfr->setChecked(initial_values.is_vfr);
     initial_text = "";
-    if (std::holds_alternative<concat::SameAsInput>(initial_values.audio_codec)) {
+    if (std::holds_alternative<concat::SameAsInput<QString>>(initial_values.audio_codec)) {
         initial_text = tr("same as input");
     } else {
         initial_text = tr("custom");
@@ -147,7 +147,7 @@ void VideoInfoWidget::set_infos(const concat::VideoInfo &initial_values, const c
         ui_->comboBox_input_audio_codec->addItem(item);
     }
     initial_text = "";
-    if (std::holds_alternative<concat::SameAsInput>(initial_values.video_codec)) {
+    if (std::holds_alternative<concat::SameAsInput<QString>>(initial_values.video_codec)) {
         initial_text = tr("same as input");
     } else {
         initial_text = tr("custom");
@@ -159,7 +159,7 @@ void VideoInfoWidget::set_infos(const concat::VideoInfo &initial_values, const c
     }
     update_everything_();
 
-    for (const auto &arg : input_info.encoding_args) {
+    for (const auto &arg : initial_values.encoding_args) {
         add_argument_slot_();
         ui_->listWidget_args->item(ui_->listWidget_args->count() - 1)->setText(arg);
     }
@@ -185,15 +185,18 @@ concat::VideoInfo VideoInfoWidget::info() const {
     result.is_vfr = ui_->radioButton_vfr->isChecked();
     auto audio_codec = ui_->comboBox_audio_codec->currentText();
     if (audio_codec == tr("same as input")) {
-        result.audio_codec = concat::SameAsInput{ui_->comboBox_input_audio_codec->currentText()};
+        result.audio_codec = concat::SameAsInput<QString>{ui_->comboBox_input_audio_codec->currentText()};
     } else {
         result.audio_codec = ui_->lineEdit_audio_codec->text();
     }
     auto video_codec = ui_->comboBox_video_codec->currentText();
     if (video_codec == tr("same as input")) {
-        result.video_codec = concat::SameAsInput{ui_->comboBox_input_video_codec->currentText()};
+        result.video_codec = concat::SameAsInput<QString>{ui_->comboBox_input_video_codec->currentText()};
     } else {
         result.video_codec = ui_->lineEdit_video_codec->text();
+    }
+    for (auto i = 0; i < ui_->listWidget_args->count(); i++) {
+        result.encoding_args += ui_->listWidget_args->item(i)->text();
     }
     return result;
 }

@@ -87,6 +87,7 @@
     <addaction name="actiondefault_extractor"/>
     <addaction name="actionsavefile_name_generator"/>
     <addaction name="actioneffective_period_of_cache"/>
+    <addaction name="actiondefault_video_info"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menusettings"/>
@@ -121,6 +122,11 @@
   <action name="actioneffective_period_of_cache">
    <property name="text">
     <string>effective period of cache</string>
+   </property>
+  </action>
+  <action name="actiondefault_video_info">
+   <property name="text">
+    <string>default video info</string>
    </property>
   </action>
  </widget>

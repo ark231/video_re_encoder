@@ -15,6 +15,7 @@
 
 #include "processwidget.hpp"
 #include "videoinfo.hpp"
+#include "videoinfo_stream.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -38,6 +39,7 @@ class MainWindow : public QMainWindow {
     void save_result_();
     void select_default_chaptername_plugin_();
     void select_savefile_name_plugin_();
+    void edit_default_video_info_();
 
    private:
     Ui::MainWindow *ui_;
