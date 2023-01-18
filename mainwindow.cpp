@@ -1,5 +1,6 @@
 #include "mainwindow.hpp"
 
+#include <Section.h>
 #include <fmt/chrono.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
@@ -11,6 +12,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonArray>
@@ -44,6 +46,7 @@
 #include "listdialog.hpp"
 #include "processwidget.hpp"
 #include "videoinfodialog.hpp"
+#include "videoinfowidget.hpp"
 
 namespace {
 concat::VideoInfo retrieve_input_info(const concat::VideoInfo &info) {
@@ -65,6 +68,7 @@ concat::VideoInfo retrieve_input_info(const concat::VideoInfo &info) {
     // encoding_argsはinitial_valueで指定すべき
     return result;
 }
+constexpr auto INITIAL_ANIMATION_DURATION = 200;
 }  // namespace
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainWindow) {
     ui_->setupUi(this);
@@ -79,13 +83,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     connect(ui_->actioneffective_period_of_cache, &QAction::triggered, this,
             &MainWindow::update_effective_period_of_cache_);
     connect(ui_->actiondefault_video_info, &QAction::triggered, this, &MainWindow::edit_default_video_info_);
+    connect(ui_->actionanimation_duration_of_collapsible_section, &QAction::triggered, this,
+            &MainWindow::update_animation_duration);
     QDir settings_dir(QApplication::applicationDirPath() + "/settings");
     if (QDir().mkpath(settings_dir.absolutePath())) {  // QDir::mkpath() returns true even when path already exists
         settings_ = new QSettings(settings_dir.filePath("settings.ini"), QSettings::IniFormat);
     }
+    auto section = new ui::Section(tr("video info"),
+                                   settings_->value("animation_duration", INITIAL_ANIMATION_DURATION).toInt(), this);
+    auto layout = new QGridLayout(section);
+    video_info_widget_ = new VideoInfoWidget(section);
+    layout->addWidget(video_info_widget_);
+    section->setContentLayout(*layout);
+    ui_->gridLayout_section->addWidget(section);
     if (settings_->contains("default_video_info")) {
         auto default_video_info = settings_->value("default_video_info").value<concat::VideoInfo>();
-        ui_->videoInfoWidget->set_infos(default_video_info, retrieve_input_info(default_video_info));
+        video_info_widget_->set_infos(default_video_info, retrieve_input_info(default_video_info));
     }
 }
 
@@ -123,6 +136,17 @@ void MainWindow::update_effective_period_of_cache_() {
                                        settings_->value("video_dir_cache/effective_period").toTime(), &confirmed);
     if (confirmed && period.isValid()) {
         settings_->setValue("video_dir_cache/effective_period", period);
+    }
+}
+
+void MainWindow::update_animation_duration() {
+    bool confirmed = false;
+    auto period = QInputDialog::getInt(
+        nullptr, tr("animation duration"),
+        tr("enter animation duration of collapsible section in milliseconds (restart is required)"),
+        settings_->value("animation_duration", INITIAL_ANIMATION_DURATION).toInt(), 0, INT_MAX, 1, &confirmed);
+    if (confirmed) {
+        settings_->setValue("animation_duration", period);
     }
 }
 
@@ -261,6 +285,9 @@ void MainWindow::show_size_() {
     }
     QString message;
     message += "<h1>" + tr("size informations") + "</h1>";
+    message += "<b>";
+    message += tr("when videos are re-encoded(e.g. when video-codec is changed), estimation will be inaccurate.");
+    message += "</b>";
     message += "<p>";
     message += (error_has_ocurred ? tr("warning: some error has ocurred. result may be incorrect")
                                   : tr("no error has ocurred"));
@@ -564,10 +591,9 @@ void MainWindow::confirm_video_info_() {
         std::get<QSet<QString>>(input_info.video_codec) += std::get<QString>(info.video_codec);
     }
     bool confirmed = false;
-    qDebug() << ui_->videoInfoWidget->info().encoding_args;
     output_video_info_ = VideoInfoDialog::get_video_info(nullptr, tr("video info confirmation"),
                                                          tr("check and edit information about output video"),
-                                                         ui_->videoInfoWidget->info(), input_info, &confirmed);
+                                                         video_info_widget_->info(), input_info, &confirmed);
     if (std::holds_alternative<concat::SameAsHighest<QSize>>(output_video_info_.resolution)) {
         output_video_info_.resolution = std::get<concat::SameAsHighest<QSize>>(output_video_info_.resolution).value;
     }

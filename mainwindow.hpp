@@ -15,7 +15,7 @@
 
 #include "processwidget.hpp"
 #include "videoinfo.hpp"
-#include "videoinfo_stream.hpp"
+#include "videoinfowidget.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -34,6 +34,7 @@ class MainWindow : public QMainWindow {
     QUrl read_video_dir_cache_();
     void write_video_dir_cache_(QUrl);
     void update_effective_period_of_cache_();
+    void update_animation_duration();
 
     void open_video_();
     void save_result_();
@@ -43,7 +44,8 @@ class MainWindow : public QMainWindow {
 
    private:
     Ui::MainWindow *ui_;
-    ProcessWidget *process_ = nullptr;  // deleted on close
+    VideoInfoWidget *video_info_widget_;  // deleted when this(MainWindow) is deleted
+    ProcessWidget *process_ = nullptr;    // deleted on close
     QSettings *settings_ = nullptr;
     struct FileInfo {
         QString path;

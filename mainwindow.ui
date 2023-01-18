@@ -47,7 +47,7 @@
          </widget>
         </item>
         <item>
-         <widget class="VideoInfoWidget" name="videoInfoWidget" native="true"/>
+         <layout class="QGridLayout" name="gridLayout_section"/>
         </item>
         <item>
          <widget class="QPushButton" name="pushButton_save">
@@ -88,6 +88,7 @@
     <addaction name="actionsavefile_name_generator"/>
     <addaction name="actioneffective_period_of_cache"/>
     <addaction name="actiondefault_video_info"/>
+    <addaction name="actionanimation_duration_of_collapsible_section"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menusettings"/>
@@ -129,15 +130,17 @@
     <string>default video info</string>
    </property>
   </action>
+  <action name="actioncollapsible_section_animation_duration">
+   <property name="text">
+    <string>collapsible section animation duration</string>
+   </property>
+  </action>
+  <action name="actionanimation_duration_of_collapsible_section">
+   <property name="text">
+    <string>animation duration of collapsible section</string>
+   </property>
+  </action>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>VideoInfoWidget</class>
-   <extends>QWidget</extends>
-   <header>videoinfowidget.hpp</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources>
   <include location="main_resources.qrc"/>
  </resources>

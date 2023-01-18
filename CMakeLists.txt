@@ -59,11 +59,15 @@ if(NOT ${fmt_FOUND})
     )
 endif()
 
+add_subdirectory(3rdparty)
+
 target_link_libraries(video_concatenater PRIVATE
     Qt6::Widgets
     Qt6::MultimediaWidgets
     Qt6::Gui
     fmt
+
+    qt_collapsible_section
 )
 
 target_compile_definitions(video_concatenater PRIVATE $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT$<SEMICOLON>QT_NO_DEBUG>)
