@@ -682,34 +682,33 @@ void MainWindow::concatenate_videos_() {
         total_length_ += duration_cast<milliseconds>(file_info.duration);
     }
     concat_file.close();
-    bool will_be_re_encoded = false;
+    bool resolution_changed = false, audio_codec_changed = false, video_codec_changed = false;
     for (const auto &fileinfo : file_infos_) {
-        qDebug() << "fileinfo.video_info.video_codec: " << std::get<QString>(fileinfo.video_info.video_codec);
-        qDebug() << "output_video_info_.video_codec: " << std::get<QString>(output_video_info_.video_codec);
-        if ((std::get<QSize>(output_video_info_.resolution) != std::get<QSize>(fileinfo.video_info.resolution) ||
-             (std::get<QString>(output_video_info_.audio_codec) !=
-              std::get<QString>(fileinfo.video_info.audio_codec)) ||
-             (std::get<QString>(output_video_info_.video_codec) !=
-              std::get<QString>(fileinfo.video_info.video_codec)))) {
-            will_be_re_encoded = true;
+        if (std::get<QSize>(output_video_info_.resolution) != std::get<QSize>(fileinfo.video_info.resolution)) {
+            resolution_changed = true;
+        }
+        if (std::get<QString>(output_video_info_.audio_codec) != std::get<QString>(fileinfo.video_info.audio_codec)) {
+            audio_codec_changed = true;
+        }
+        if (std::get<QString>(output_video_info_.video_codec) != std::get<QString>(fileinfo.video_info.video_codec)) {
+            video_codec_changed = true;
         }
     }
-    qDebug() << "will_be_re_encoded: " << will_be_re_encoded;
     QStringList arguments;
     tmpfile_paths_.concatenated = tmpdir_->filePath("concatenated." + QFileInfo(result_path_.toLocalFile()).suffix());
     // clang-format off
     arguments << "-f" << "concat"
               << "-safe" << "0"
               << "-i" << concat_file.fileName()
-              << "-c:a" << (will_be_re_encoded ? std::get<QString>(output_video_info_.audio_codec) : "copy")
-              << "-c:v" << (will_be_re_encoded ? std::get<QString>(output_video_info_.video_codec) : "copy")
-              << tmpfile_paths_.concatenated;
+              << "-c:a" << (audio_codec_changed? std::get<QString>(output_video_info_.audio_codec) : "copy")
+              << "-c:v" << (video_codec_changed? std::get<QString>(output_video_info_.video_codec) : "copy");
     // clang-format on
-    if (will_be_re_encoded) {
+    if (resolution_changed) {
         auto resolution = std::get<QSize>(output_video_info_.resolution);
         arguments << "-s" << QStringLiteral("%1x%2").arg(resolution.width()).arg(resolution.height());
     }
     arguments += output_video_info_.encoding_args;
+    arguments << tmpfile_paths_.concatenated;
     process_->start("ffmpeg", arguments, false, {0, total_length_.count(), impl_::decode_ffmpeg});
     tmpfile_paths_.metadata = tmpdir_->filePath("metadata.ini");
     connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] {
