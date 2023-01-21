@@ -28,6 +28,7 @@
 #include <QStandardPaths>
 #include <QStringList>
 #include <QTextStream>
+#include <QTime>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QVector>
@@ -711,7 +712,14 @@ void MainWindow::concatenate_videos_() {
     }
     arguments += output_video_info_.encoding_args;
     arguments << tmpfile_paths_.concatenated;
-    process_->start("ffmpeg", arguments, false, {0, total_length_.count(), impl_::decode_ffmpeg});
+    using VT = ProcessWidget::ProgressParams::ValueType;
+    auto format = [](VT value) {
+        return QTime::fromMSecsSinceStartOfDay(value).toString(tr("hh'h'mm'm'ss's'zzz'ms'"));
+    };
+    process_->start("ffmpeg", arguments, false,
+                    {0, total_length_.count(), impl_::decode_ffmpeg, [format](VT, VT current, VT total) {
+                         return QStringLiteral("%1/%2").arg(format(current)).arg(format(total));
+                     }});
     tmpfile_paths_.metadata = tmpdir_->filePath("metadata.ini");
     connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] {
                 this->retrieve_metadata_(this->tmpfile_paths_.concatenated, this->tmpfile_paths_.metadata,
@@ -777,7 +785,7 @@ void MainWindow::cleanup_after_saving_() {
     tmpdir_ = nullptr;
 }
 void MainWindow::start_saving_() {
-    process_ = new ProcessWidget(this, Qt::Window);
+    process_ = new ProcessWidget(this, Qt::Window | Qt::CustomizeWindowHint | Qt::WindowMinMaxButtonsHint);
     process_->setWindowModality(Qt::WindowModal);
     process_->setAttribute(Qt::WA_DeleteOnClose, true);
     process_->show();

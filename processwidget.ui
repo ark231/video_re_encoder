@@ -72,6 +72,13 @@
       </widget>
      </item>
      <item>
+      <widget class="QLabel" name="label_progress">
+       <property name="text">
+        <string>label</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <layout class="QHBoxLayout" name="horizontalLayout_progress">
        <item>
         <widget class="QProgressBar" name="progressBar">

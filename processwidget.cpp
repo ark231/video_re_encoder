@@ -88,9 +88,12 @@ void ProcessWidget::start(const QString &command, const QStringList &arguments, 
         ui_->progressBar->reset();
         ui_->label_remaining->show();
         ui_->label_remaining->setEnabled(true);
+        ui_->label_progress->show();
+        ui_->label_progress->setEnabled(true);
     } else {
         ui_->progressBar->hide();
         ui_->label_remaining->hide();
+        ui_->label_progress->hide();
     }
 
     ui_->label_status->setText(tr("Starting %1").arg(command));
@@ -120,6 +123,7 @@ void ProcessWidget::update_label_on_finish_(int exit_code, QProcess::ExitStatus 
             emit finished(true);
             break;
         case QProcess::CrashExit:
+            // exit_code is invalid
             ui_->label_status->setText(tr("Execution of %1 has crashed.").arg(process_->program()));
             emit finished(false);
             break;
@@ -166,6 +170,7 @@ void ProcessWidget::update_stderr_() {
     update_progress_(QStringLiteral(""), new_text);
 }
 void ProcessWidget::kill_process_() {
+    enable_closing_();
     emit sigkill();  // this call blocks
 }
 void ProcessWidget::enable_closing_() {
@@ -174,7 +179,15 @@ void ProcessWidget::enable_closing_() {
     ui_->progressBar->hide();
     ui_->label_remaining->hide();
 }
-void ProcessWidget::show_error_(QProcess::ProcessError) {
+void ProcessWidget::show_error_(QProcess::ProcessError err) {
+    switch (err) {
+        case QProcess::FailedToStart:
+        case QProcess::Crashed:
+            enable_closing_();
+            break;
+        default:
+            break;
+    }
     QMessageBox::critical(this, tr("error"), tr("error: %1").arg(process_->errorString()));
 }
 void ProcessWidget::do_close_() {
@@ -204,6 +217,7 @@ void ProcessWidget::update_progress_(QStringView stdout_text, QStringView stderr
             ui_->label_remaining->setText(
                 QTime::fromMSecsSinceStartOfDay(duration_cast<milliseconds>(estimated).count())
                     .toString(tr("hh'h'mm'm'ss's'")));
+            ui_->label_progress->setText(current_progress_params_.format_progress(new_value));
         }
     }
 }

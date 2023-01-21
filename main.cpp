@@ -3,6 +3,7 @@
 #include <QTranslator>
 
 #if defined(_WIN32) && !defined(NDEBUG)
+#    define NOMINMAX
 #    include <windows.h>
 #endif
 

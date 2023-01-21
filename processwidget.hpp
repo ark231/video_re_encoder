@@ -34,7 +34,10 @@ class ProcessWidget : public QWidget {
 
        private:
         bool is_active_;
+        /// @brief calculate(retrieve) progress from input
+        /// @retval <0 error
         std::function<ValueType(QStringView, QStringView)> calc_progress_;
+        std::function<QString(ValueType, ValueType, ValueType)> format_progress_;
         static constexpr int MAX_NUM_SAMPLES = 20;
         using Speed = double;  // ValueType/Duration
         std::list<Speed> samples_;
@@ -45,10 +48,14 @@ class ProcessWidget : public QWidget {
        public:
         ValueType min;
         ValueType max;
-        ProgressParams(ValueType min = 0, ValueType max = 100,
-                       std::optional<decltype(calc_progress_)> calc_progress = std::nullopt) {
-            this->min = min;
-            this->max = max;
+        ProgressParams(
+            ValueType min = 0, ValueType max = 100,
+            std::optional<decltype(calc_progress_)> calc_progress = std::nullopt,
+            decltype(format_progress_) format_progress =
+                [](ValueType a0, ValueType a1, ValueType a2) {
+                    return QStringLiteral("%1/%2").arg(a1 - a0).arg(a2 - a0);
+                })
+            : min(min), max(max), format_progress_(format_progress) {
             is_active_ = calc_progress.has_value();
             if (is_active_) {
                 calc_progress_ = calc_progress.value();
@@ -58,6 +65,10 @@ class ProcessWidget : public QWidget {
         ValueType calc_progress(QStringView stdout_text, QStringView stderr_text) {
             Q_ASSERT(this->is_active());
             return calc_progress_(stdout_text, stderr_text);
+        }
+        QString format_progress(ValueType current) {
+            Q_ASSERT(this->is_active());
+            return format_progress_(this->min, current, this->max);
         }
         std::optional<Duration> estimate_remaining(int new_value, TimePoint now) {
             if (not estimation_is_initialized_) {
