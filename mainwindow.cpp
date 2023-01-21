@@ -91,7 +91,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     }
     auto section = new ui::Section(tr("video info"),
                                    settings_->value("animation_duration", INITIAL_ANIMATION_DURATION).toInt(), this);
-    auto layout = new QGridLayout(section);
+    // メインウィンドウなので基本的に起動から終了まで存在するので、明示的にdeleteしなくても問題はない。
+    auto layout = new QGridLayout();
     video_info_widget_ = new VideoInfoWidget(section);
     layout->addWidget(video_info_widget_);
     section->setContentLayout(*layout);
@@ -699,6 +700,7 @@ void MainWindow::concatenate_videos_() {
     // clang-format off
     arguments << "-f" << "concat"
               << "-safe" << "0"
+              << output_video_info_.input_file_args
               << "-i" << concat_file.fileName()
               << "-c:a" << (audio_codec_changed? std::get<QString>(output_video_info_.audio_codec) : "copy")
               << "-c:v" << (video_codec_changed? std::get<QString>(output_video_info_.video_codec) : "copy");

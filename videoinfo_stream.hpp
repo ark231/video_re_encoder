@@ -57,12 +57,7 @@ template <class T>
 QDataStream& operator<<(QDataStream& stream, const RangedVariant<T>& value) {
     stream << value.index();
     auto stream_ref = &stream;
-    std::visit(
-        [stream_ref](const auto& contained_value) {
-            // (*stream_ref) << typeid(remove_cvref_t<decltype(contained_value)>).name() << contained_value;
-            (*stream_ref) << contained_value;
-        },
-        value);
+    std::visit([stream_ref](const auto& contained_value) { (*stream_ref) << contained_value; }, value);
     return stream;
 }
 class VariantRetriever {
@@ -109,13 +104,7 @@ template <class T>
 QDataStream& operator<<(QDataStream& stream, const SelectableVariant<T>& value) {
     stream << value.index();
     auto stream_ref = &stream;
-    std::visit(
-        [stream_ref](const auto& contained_value) {
-            // (*stream_ref) << QString{typeid(remove_cvref_t<decltype(contained_value)>).name()} << contained_value;
-            // (*stream_ref) << typeid(remove_cvref_t<decltype(contained_value)>).name() << contained_value;
-            (*stream_ref) << contained_value;
-        },
-        value);
+    std::visit([stream_ref](const auto& contained_value) { (*stream_ref) << contained_value; }, value);
     return stream;
 }
 template <class T>

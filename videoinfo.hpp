@@ -30,12 +30,14 @@ using RangedVariant = std::variant<SameAsHighest<T>, SameAsLowest<T>, T, ValueRa
 template <class T>
 using SelectableVariant = std::variant<SameAsInput<T>, T, QSet<T>>;
 struct VideoInfo {
+    static constexpr int VERSION = 1;
     RangedVariant<QSize> resolution;
     RangedVariant<double> framerate;
     bool is_vfr;
     SelectableVariant<QString> audio_codec;
     SelectableVariant<QString> video_codec;
     QVector<QString> encoding_args;
+    QVector<QString> input_file_args;
 
     static VideoInfo create_input_info() {
         return {ValueRange<QSize>{}, ValueRange<double>{}, true, QSet<QString>{}, QSet<QString>{}};

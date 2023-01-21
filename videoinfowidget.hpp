@@ -9,6 +9,8 @@
 namespace Ui {
 class VideoInfoWidget;
 }
+class QListWidget;
+class QPushButton;
 
 class VideoInfoWidget : public QWidget {
     Q_OBJECT
@@ -23,8 +25,12 @@ class VideoInfoWidget : public QWidget {
     Ui::VideoInfoWidget *ui_;
     concat::VideoInfo input_info_;
     concat::VideoInfo cache_;
-    void add_argument_slot_();
-    void remove_current_argument_slot_();
+    void add_argument_slot_impl_(QListWidget *widget, QPushButton *button);
+    void add_argument_slot_input_();
+    void add_argument_slot_output_();
+    void remove_current_argument_slot_impl_(QListWidget *widget, QPushButton *button);
+    void remove_current_argument_slot_input_();
+    void remove_current_argument_slot_output_();
     void toggle_input_is_enabled_(QString text, QVector<QWidget *> widgets);
     void update_input_resolution_(QString text);
     void update_input_framerate_(QString text);

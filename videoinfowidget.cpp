@@ -7,8 +7,12 @@ VideoInfoWidget::VideoInfoWidget(QWidget *parent)
       cache_({QSize{0, 0}, 0.0, true, "", "", {}}),
       input_info_({concat::ValueRange<QSize>{}, concat::ValueRange<double>{}, true, {""}, {""}, {}}) {
     ui_->setupUi(this);
-    connect(ui_->pushButton_add, &QPushButton::clicked, this, &VideoInfoWidget::add_argument_slot_);
-    connect(ui_->pushButton_remove, &QPushButton::clicked, this, &VideoInfoWidget::remove_current_argument_slot_);
+    connect(ui_->pushButton_add, &QPushButton::clicked, this, &VideoInfoWidget::add_argument_slot_output_);
+    connect(ui_->pushButton_remove, &QPushButton::clicked, this,
+            &VideoInfoWidget::remove_current_argument_slot_output_);
+    connect(ui_->pushButton_add_input_args, &QPushButton::clicked, this, &VideoInfoWidget::add_argument_slot_input_);
+    connect(ui_->pushButton_remove_input_args, &QPushButton::clicked, this,
+            &VideoInfoWidget::remove_current_argument_slot_input_);
     connect(ui_->comboBox_resolution, &QComboBox::currentTextChanged, this, &VideoInfoWidget::update_input_resolution_);
     connect(ui_->comboBox_framerate, &QComboBox::currentTextChanged, this, &VideoInfoWidget::update_input_framerate_);
     connect(ui_->comboBox_audio_codec, &QComboBox::currentTextChanged, this,
@@ -23,22 +27,34 @@ VideoInfoWidget::VideoInfoWidget(QWidget *parent)
 
 VideoInfoWidget::~VideoInfoWidget() { delete ui_; }
 
-void VideoInfoWidget::add_argument_slot_() {
-    auto item = new QListWidgetItem("arg", ui_->listWidget_args);
+void VideoInfoWidget::add_argument_slot_impl_(QListWidget *widget, QPushButton *button) {
+    auto item = new QListWidgetItem("arg", widget);
     item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsEnabled);
-    ui_->pushButton_remove->setEnabled(true);
+    button->setEnabled(true);
 }
-void VideoInfoWidget::remove_current_argument_slot_() {
+void VideoInfoWidget::add_argument_slot_input_() {
+    add_argument_slot_impl_(ui_->listWidget_input_args, ui_->pushButton_remove_input_args);
+}
+void VideoInfoWidget::add_argument_slot_output_() {
+    add_argument_slot_impl_(ui_->listWidget_args, ui_->pushButton_remove);
+}
+void VideoInfoWidget::remove_current_argument_slot_impl_(QListWidget *widget, QPushButton *button) {
     int id_to_remove;
-    if (ui_->listWidget_args->currentRow() == -1) {
-        id_to_remove = ui_->listWidget_args->count() - 1;
+    if (widget->currentRow() == -1) {
+        id_to_remove = widget->count() - 1;
     } else {
-        id_to_remove = ui_->listWidget_args->currentRow();
+        id_to_remove = widget->currentRow();
     }
-    delete ui_->listWidget_args->takeItem(id_to_remove);
-    if (ui_->listWidget_args->count() == 0) {
-        ui_->pushButton_remove->setEnabled(false);
+    delete widget->takeItem(id_to_remove);
+    if (widget->count() == 0) {
+        button->setEnabled(false);
     }
+}
+void VideoInfoWidget::remove_current_argument_slot_input_() {
+    remove_current_argument_slot_impl_(ui_->listWidget_input_args, ui_->pushButton_remove_input_args);
+}
+void VideoInfoWidget::remove_current_argument_slot_output_() {
+    remove_current_argument_slot_impl_(ui_->listWidget_args, ui_->pushButton_remove);
 }
 void VideoInfoWidget::toggle_input_is_enabled_(QString text, QVector<QWidget *> widgets) {
     bool new_enabled;
@@ -160,8 +176,12 @@ void VideoInfoWidget::set_infos(const concat::VideoInfo &initial_values, const c
     update_everything_();
 
     for (const auto &arg : initial_values.encoding_args) {
-        add_argument_slot_();
+        add_argument_slot_output_();
         ui_->listWidget_args->item(ui_->listWidget_args->count() - 1)->setText(arg);
+    }
+    for (const auto &arg : initial_values.input_file_args) {
+        add_argument_slot_input_();
+        ui_->listWidget_input_args->item(ui_->listWidget_input_args->count() - 1)->setText(arg);
     }
 }
 concat::VideoInfo VideoInfoWidget::info() const {
@@ -197,6 +217,9 @@ concat::VideoInfo VideoInfoWidget::info() const {
     }
     for (auto i = 0; i < ui_->listWidget_args->count(); i++) {
         result.encoding_args += ui_->listWidget_args->item(i)->text();
+    }
+    for (auto i = 0; i < ui_->listWidget_input_args->count(); i++) {
+        result.input_file_args += ui_->listWidget_input_args->item(i)->text();
     }
     return result;
 }
