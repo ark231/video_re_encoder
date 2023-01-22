@@ -42,6 +42,7 @@ struct VideoInfo {
     static VideoInfo create_input_info() {
         return {ValueRange<QSize>{}, ValueRange<double>{}, true, QSet<QString>{}, QSet<QString>{}};
     }
+    void resolve_reference();
 };
 }  // namespace concat
 Q_DECLARE_METATYPE(concat::SameAsHighest<QSize>);

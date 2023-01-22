@@ -1,6 +1,7 @@
 #include "videoinfowidget.hpp"
 
 #include "ui_videoinfowidget.h"
+#include "util_macros.hpp"
 VideoInfoWidget::VideoInfoWidget(QWidget *parent)
     : QWidget(parent),
       ui_(new Ui::VideoInfoWidget),
@@ -70,34 +71,40 @@ void VideoInfoWidget::toggle_input_is_enabled_(QString text, QVector<QWidget *> 
 void VideoInfoWidget::update_input_resolution_(QString text) {
     toggle_input_is_enabled_(text, {ui_->spinBox_width, ui_->spinBox_height});
     QSize new_size{ui_->spinBox_width->value(), ui_->spinBox_height->value()};
-    if (text == tr("same as highest")) {
-        new_size = std::get<concat::ValueRange<QSize>>(input_info_.resolution).highest;
-    } else if (text == tr("same as lowest")) {
-        new_size = std::get<concat::ValueRange<QSize>>(input_info_.resolution).lowest;
-    } else if (text == tr("1920x1080")) {
-        new_size = {1920, 1080};
-    } else if (text == tr("3840x2160")) {
-        new_size = {3840, 2160};
-    } else if (text == tr("custom")) {
-        new_size = std::get<QSize>(cache_.resolution);
+    VIDEO_RE_ENCODER_TRY_VARIANT {
+        if (text == tr("same as highest")) {
+            new_size = std::get<concat::ValueRange<QSize>>(input_info_.resolution).highest;
+        } else if (text == tr("same as lowest")) {
+            new_size = std::get<concat::ValueRange<QSize>>(input_info_.resolution).lowest;
+        } else if (text == tr("1920x1080")) {
+            new_size = {1920, 1080};
+        } else if (text == tr("3840x2160")) {
+            new_size = {3840, 2160};
+        } else if (text == tr("custom")) {
+            new_size = std::get<QSize>(cache_.resolution);
+        }
     }
+    VIDEO_RE_ENCODER_CATCH_VARIANT_2(input_info_.resolution, cache_.resolution)
     ui_->spinBox_width->setValue(new_size.width());
     ui_->spinBox_height->setValue(new_size.height());
 }
 void VideoInfoWidget::update_input_framerate_(QString text) {
     toggle_input_is_enabled_(text, {ui_->doubleSpinBox_framerate});
     double new_value = ui_->doubleSpinBox_framerate->value();
-    if (text == tr("same as highest")) {
-        new_value = std::get<concat::ValueRange<double>>(input_info_.framerate).highest;
-    } else if (text == tr("same as lowest")) {
-        new_value = std::get<concat::ValueRange<double>>(input_info_.framerate).lowest;
-    } else if (text == tr("60fps")) {
-        new_value = 60;
-    } else if (text == tr("30fps")) {
-        new_value = 30;
-    } else if (text == tr("custom")) {
-        new_value = std::get<double>(cache_.framerate);
+    VIDEO_RE_ENCODER_TRY_VARIANT {
+        if (text == tr("same as highest")) {
+            new_value = std::get<concat::ValueRange<double>>(input_info_.framerate).highest;
+        } else if (text == tr("same as lowest")) {
+            new_value = std::get<concat::ValueRange<double>>(input_info_.framerate).lowest;
+        } else if (text == tr("60fps")) {
+            new_value = 60;
+        } else if (text == tr("30fps")) {
+            new_value = 30;
+        } else if (text == tr("custom")) {
+            new_value = std::get<double>(cache_.framerate);
+        }
     }
+    VIDEO_RE_ENCODER_CATCH_VARIANT_2(input_info_.framerate, cache_.framerate)
     ui_->doubleSpinBox_framerate->setValue(new_value);
 }
 void VideoInfoWidget::update_input_audio_codec_(QString text) {
@@ -107,7 +114,8 @@ void VideoInfoWidget::update_input_audio_codec_(QString text) {
     } else {
         ui_->stackedWidget_audio_codec->setCurrentWidget(ui_->page_lineedit_audio_codec);
         if (text == tr("custom")) {
-            ui_->lineEdit_audio_codec->setText(std::get<QString>(cache_.audio_codec));
+            VIDEO_RE_ENCODER_TRY_VARIANT { ui_->lineEdit_audio_codec->setText(std::get<QString>(cache_.audio_codec)); }
+            VIDEO_RE_ENCODER_CATCH_VARIANT(cache_.audio_codec)
         }
     }
 }
@@ -118,61 +126,82 @@ void VideoInfoWidget::update_input_video_codec_(QString text) {
     } else {
         ui_->stackedWidget_video_codec->setCurrentWidget(ui_->page_lineedit_video_codec);
         QString new_value = ui_->lineEdit_video_codec->text();
-        if (text == tr("h264")) {
-            new_value = "h264";  // not translated as this will be directly used
-        } else if (text == tr("hevc")) {
-            new_value = "hevc";
-        } else if (text == tr("custom")) {
-            new_value = std::get<QString>(cache_.video_codec);
+        VIDEO_RE_ENCODER_TRY_VARIANT {
+            if (text == tr("h264")) {
+                new_value = "h264";  // not translated as this will be directly used
+            } else if (text == tr("hevc")) {
+                new_value = "hevc";
+            } else if (text == tr("custom")) {
+                new_value = std::get<QString>(cache_.video_codec);
+            }
         }
+        VIDEO_RE_ENCODER_CATCH_VARIANT(cache_.video_codec)
         ui_->lineEdit_video_codec->setText(new_value);
     }
 }
 void VideoInfoWidget::set_infos(const concat::VideoInfo &initial_values, const concat::VideoInfo &input_info) {
     input_info_ = input_info;
     QString initial_text;
-    if (std::holds_alternative<concat::SameAsHighest<QSize>>(initial_values.resolution)) {
-        initial_text = tr("same as highest");
-    } else if (std::holds_alternative<concat::SameAsLowest<QSize>>(initial_values.resolution)) {
-        initial_text = tr("same as lowest");
-    } else if (std::holds_alternative<QSize>(initial_values.resolution)) {
-        initial_text = tr("custom");  // プリセットはとりあえずカスタム扱い
-        cache_.resolution = initial_values.resolution;
+    VIDEO_RE_ENCODER_TRY_VARIANT {
+        if (std::holds_alternative<concat::SameAsHighest<QSize>>(initial_values.resolution)) {
+            initial_text = tr("same as highest");
+        } else if (std::holds_alternative<concat::SameAsLowest<QSize>>(initial_values.resolution)) {
+            initial_text = tr("same as lowest");
+        } else if (std::holds_alternative<QSize>(initial_values.resolution)) {
+            initial_text = tr("custom");  // プリセットはとりあえずカスタム扱い
+            cache_.resolution = initial_values.resolution;
+        }
     }
+    VIDEO_RE_ENCODER_CATCH_VARIANT(initial_values.resolution)
     ui_->comboBox_resolution->setCurrentText(initial_text);
     initial_text = "";
-    if (std::holds_alternative<concat::SameAsHighest<double>>(initial_values.framerate)) {
-        initial_text = tr("same as highest");
-    } else if (std::holds_alternative<concat::SameAsLowest<double>>(initial_values.framerate)) {
-        initial_text = tr("same as lowest");
-    } else if (std::holds_alternative<double>(initial_values.framerate)) {
-        initial_text = tr("custom");  // プリセットはとりあえずカスタム扱い
-        cache_.framerate = initial_values.framerate;
+    VIDEO_RE_ENCODER_TRY_VARIANT {
+        if (std::holds_alternative<concat::SameAsHighest<double>>(initial_values.framerate)) {
+            initial_text = tr("same as highest");
+        } else if (std::holds_alternative<concat::SameAsLowest<double>>(initial_values.framerate)) {
+            initial_text = tr("same as lowest");
+        } else if (std::holds_alternative<double>(initial_values.framerate)) {
+            initial_text = tr("custom");  // プリセットはとりあえずカスタム扱い
+            cache_.framerate = initial_values.framerate;
+        }
     }
+    VIDEO_RE_ENCODER_CATCH_VARIANT(initial_values.framerate)
     ui_->comboBox_framerate->setCurrentText(initial_text);
     ui_->radioButton_vfr->setChecked(initial_values.is_vfr);
     initial_text = "";
-    if (std::holds_alternative<concat::SameAsInput<QString>>(initial_values.audio_codec)) {
-        initial_text = tr("same as input");
-    } else {
-        initial_text = tr("custom");
-        cache_.audio_codec = initial_values.audio_codec;
+    VIDEO_RE_ENCODER_TRY_VARIANT {
+        if (std::holds_alternative<concat::SameAsInput<QString>>(initial_values.audio_codec)) {
+            initial_text = tr("same as input");
+        } else {
+            initial_text = tr("custom");
+            cache_.audio_codec = initial_values.audio_codec;
+        }
     }
+    VIDEO_RE_ENCODER_CATCH_VARIANT(initial_values.audio_codec)
     ui_->comboBox_audio_codec->setCurrentText(initial_text);
-    for (const auto &item : std::get<QSet<QString>>(input_info.audio_codec)) {
-        ui_->comboBox_input_audio_codec->addItem(item);
+    VIDEO_RE_ENCODER_TRY_VARIANT {
+        for (const auto &item : std::get<QSet<QString>>(input_info.audio_codec)) {
+            ui_->comboBox_input_audio_codec->addItem(item);
+        }
     }
+    VIDEO_RE_ENCODER_CATCH_VARIANT(input_info.audio_codec)
     initial_text = "";
-    if (std::holds_alternative<concat::SameAsInput<QString>>(initial_values.video_codec)) {
-        initial_text = tr("same as input");
-    } else {
-        initial_text = tr("custom");
-        cache_.video_codec = initial_values.video_codec;
+    VIDEO_RE_ENCODER_TRY_VARIANT {
+        if (std::holds_alternative<concat::SameAsInput<QString>>(initial_values.video_codec)) {
+            initial_text = tr("same as input");
+        } else {
+            initial_text = tr("custom");
+            cache_.video_codec = initial_values.video_codec;
+        }
     }
+    VIDEO_RE_ENCODER_CATCH_VARIANT(initial_values.video_codec)
     ui_->comboBox_video_codec->setCurrentText(initial_text);
-    for (const auto &item : std::get<QSet<QString>>(input_info.video_codec)) {
-        ui_->comboBox_input_video_codec->addItem(item);
+    VIDEO_RE_ENCODER_TRY_VARIANT {
+        for (const auto &item : std::get<QSet<QString>>(input_info.video_codec)) {
+            ui_->comboBox_input_video_codec->addItem(item);
+        }
     }
+    VIDEO_RE_ENCODER_CATCH_VARIANT(input_info.video_codec)
     update_everything_();
 
     for (const auto &arg : initial_values.encoding_args) {

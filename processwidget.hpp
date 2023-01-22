@@ -22,7 +22,8 @@ class ProcessWidget : public QWidget {
     Q_OBJECT
 
    public:
-    explicit ProcessWidget(QWidget *parent = nullptr, Qt::WindowFlags flags = Qt::WindowFlags());
+    explicit ProcessWidget(bool close_on_final = false, QWidget *parent = nullptr,
+                           Qt::WindowFlags flags = Qt::WindowFlags());
     ~ProcessWidget();
     class ProgressParams {
        public:
@@ -142,6 +143,7 @@ class ProcessWidget : public QWidget {
     int current_stdout_tab_idx_ = -1;
     int current_stderr_tab_idx_ = -1;
     ProgressParams current_progress_params_;
+    bool close_on_final_;
    signals:
     void start_process(const QString &command, const QStringList &arguments, QIODeviceBase::OpenMode);
     void sigkill();
@@ -152,6 +154,7 @@ class ProcessWidget : public QWidget {
     void update_stderr_();
     void kill_process_();
     void enable_closing_();
+    void disable_closing_();
     void do_close_();
     void show_error_(QProcess::ProcessError error);
 

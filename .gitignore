@@ -113,3 +113,4 @@ tags
 
 # this project doesn't use python version of Qt
 ui_*.py
+resources/app_icon_*.kra

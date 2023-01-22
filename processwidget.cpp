@@ -8,8 +8,8 @@
 
 #include "ui_processwidget.h"
 
-ProcessWidget::ProcessWidget(QWidget *parent, Qt::WindowFlags flags)
-    : QWidget(parent, flags), ui_(new Ui::ProcessWidget) {
+ProcessWidget::ProcessWidget(bool close_on_final, QWidget *parent, Qt::WindowFlags flags)
+    : QWidget(parent, flags), ui_(new Ui::ProcessWidget), close_on_final_(close_on_final) {
     ui_->setupUi(this);
     ui_->label_status->setText(tr("Executing nothing."));
     thread_.start();
@@ -39,7 +39,11 @@ void ProcessWidget::start(const QString &command, const QStringList &arguments, 
     connect(ui_->pushButton_close, &QPushButton::clicked, this, &ProcessWidget::do_close_);
     connect(ui_->pushButton_kill, &QPushButton::clicked, this, &ProcessWidget::kill_process_);
     if (is_final) {
-        connect(process_, &QProcess::finished, this, &ProcessWidget::enable_closing_);
+        if (close_on_final_) {
+            connect(process_, &QProcess::finished, this, &ProcessWidget::do_close_);
+        } else {
+            connect(process_, &QProcess::finished, this, &ProcessWidget::enable_closing_);
+        }
     }
 
     auto arguments_content = new QWidget;
@@ -97,6 +101,7 @@ void ProcessWidget::start(const QString &command, const QStringList &arguments, 
     }
 
     ui_->label_status->setText(tr("Starting %1").arg(command));
+    disable_closing_();
 
     emit start_process(command, arguments, QIODeviceBase::ReadWrite);
 }
@@ -178,6 +183,10 @@ void ProcessWidget::enable_closing_() {
     ui_->pushButton_kill->setEnabled(false);
     ui_->progressBar->hide();
     ui_->label_remaining->hide();
+}
+void ProcessWidget::disable_closing_() {
+    ui_->pushButton_close->setEnabled(false);
+    ui_->pushButton_kill->setEnabled(true);
 }
 void ProcessWidget::show_error_(QProcess::ProcessError err) {
     switch (err) {

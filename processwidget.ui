@@ -113,7 +113,7 @@
        <item>
         <widget class="QPushButton" name="pushButton_close">
          <property name="enabled">
-          <bool>false</bool>
+          <bool>true</bool>
          </property>
          <property name="text">
           <string>Close</string>
@@ -122,6 +122,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="pushButton_kill">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="text">
           <string>Kill</string>
          </property>

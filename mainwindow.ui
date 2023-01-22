@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>video concatenater</string>
+   <string>video re-encoder</string>
   </property>
   <property name="windowIcon">
    <iconset resource="main_resources.qrc">
@@ -27,27 +27,73 @@
       <item>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
-         <widget class="QPushButton" name="pushButton_clear">
+         <widget class="QLabel" name="label_source_path">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
-           <string>clear</string>
+           <string>TextLabel</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QListWidget" name="listWidget_filenames">
-          <property name="dragEnabled">
-           <bool>true</bool>
-          </property>
-          <property name="dragDropMode">
-           <enum>QAbstractItemView::InternalMove</enum>
-          </property>
-          <property name="movement">
-           <enum>QListView::Snap</enum>
+         <widget class="VideoInfoWidget" name="videoInfoWidget" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
          </widget>
         </item>
         <item>
-         <layout class="QGridLayout" name="gridLayout_section"/>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <item>
+           <widget class="QPushButton" name="pushButton_diropen">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="lineEdit_output_dir"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="label">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>/</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="lineEdit_output_filename">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item>
          <widget class="QPushButton" name="pushButton_save">
@@ -84,11 +130,9 @@
     <property name="title">
      <string>settings</string>
     </property>
-    <addaction name="actiondefault_extractor"/>
     <addaction name="actionsavefile_name_generator"/>
     <addaction name="actioneffective_period_of_cache"/>
     <addaction name="actiondefault_video_info"/>
-    <addaction name="actionanimation_duration_of_collapsible_section"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menusettings"/>
@@ -141,25 +185,16 @@
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>VideoInfoWidget</class>
+   <extends>QWidget</extends>
+   <header>videoinfowidget.hpp</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="main_resources.qrc"/>
  </resources>
- <connections>
-  <connection>
-   <sender>pushButton_clear</sender>
-   <signal>clicked()</signal>
-   <receiver>listWidget_filenames</receiver>
-   <slot>clear()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>395</x>
-     <y>44</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>395</x>
-     <y>296</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>
