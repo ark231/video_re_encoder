@@ -66,6 +66,7 @@ class MainWindow : public QMainWindow {
     QString current_preset_;
     concat::VideoInfo cache_;
     void change_preset_(QString name);
+    void select_default_preset_();
 
     // steps for opening file
     void create_savefile_name_();

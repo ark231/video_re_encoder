@@ -100,6 +100,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
             &MainWindow::update_effective_period_of_cache_);
     connect(ui_->actiondefault_video_info, &QAction::triggered, this, &MainWindow::edit_default_video_info_);
     connect(ui_->comboBox_preset, &QComboBox::currentTextChanged, this, &MainWindow::change_preset_);
+    connect(ui_->actiondefault_preset, &QAction::triggered, this, &MainWindow::select_default_preset_);
     QDir settings_dir(QApplication::applicationDirPath() + "/settings");
     if (QDir().mkpath(settings_dir.absolutePath())) {  // QDir::mkpath() returns true even when path already exists
         settings_ = new QSettings(settings_dir.filePath("settings.ini"), QSettings::IniFormat);
@@ -122,6 +123,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     current_preset_ = ui_->comboBox_preset->currentText();
     cache_ = settings_->value("default_video_info").value<concat::VideoInfo>();
     source_video_info_ = concat::VideoInfo::create_input_info();
+    auto default_preset =
+        settings_->value("default_preset").isNull() ? "custom" : settings_->value("default_preset").toString();
+    ui_->comboBox_preset->setCurrentText(default_preset == "custom" ? tr("custom") : default_preset);
     change_preset_(ui_->comboBox_preset->currentText());
 }
 
@@ -451,6 +455,25 @@ void MainWindow::select_savefile_name_plugin_() {
                                    savefile_name_plugins_(), savefile_name_plugin_index_(), false, &confirmed);
     if (confirmed && settings_ != nullptr) {
         settings_->setValue("savefile_name_plugin", plugin);
+    }
+}
+
+void MainWindow::select_default_preset_() {
+    QStringList presets(tr("custom"));
+    for (const auto &[key, value] : presets_.as_table()) {
+        if (key == "VERSION") {
+            continue;
+        }
+        presets << QString::fromStdString(key);
+    }
+    bool confirmed = false;
+    auto default_preset = QInputDialog::getItem(nullptr, tr("default preset"), tr("select default preset"), presets, 0,
+                                                false, &confirmed);
+    if (confirmed) {
+        if (default_preset == tr("custom")) {
+            default_preset = "custom";
+        }
+        settings_->setValue("default_preset", default_preset);
     }
 }
 
