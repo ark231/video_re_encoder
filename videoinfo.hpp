@@ -6,6 +6,7 @@
 #include <QSize>
 #include <QString>
 #include <QVector>
+#include <toml.hpp>
 #include <variant>
 namespace concat {
 template <class T>
@@ -39,6 +40,7 @@ struct VideoInfo {
     QVector<QString> encoding_args;
     QVector<QString> input_file_args;
 
+    static VideoInfo from_toml(int version, toml::value& toml_value);
     static VideoInfo create_input_info() {
         return {ValueRange<QSize>{}, ValueRange<double>{}, true, QSet<QString>{}, QSet<QString>{}};
     }

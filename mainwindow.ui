@@ -49,6 +49,15 @@
          </widget>
         </item>
         <item>
+         <widget class="QComboBox" name="comboBox_preset">
+          <item>
+           <property name="text">
+            <string>custom</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
          <widget class="VideoInfoWidget" name="videoInfoWidget" native="true">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
@@ -133,6 +142,7 @@
     <addaction name="actionsavefile_name_generator"/>
     <addaction name="actioneffective_period_of_cache"/>
     <addaction name="actiondefault_video_info"/>
+    <addaction name="actiondefault_preset"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menusettings"/>
@@ -182,6 +192,11 @@
   <action name="actionanimation_duration_of_collapsible_section">
    <property name="text">
     <string>animation duration of collapsible section</string>
+   </property>
+  </action>
+  <action name="actiondefault_preset">
+   <property name="text">
+    <string>default preset</string>
    </property>
   </action>
  </widget>

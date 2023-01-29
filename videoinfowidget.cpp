@@ -204,10 +204,12 @@ void VideoInfoWidget::set_infos(const concat::VideoInfo &initial_values, const c
     VIDEO_RE_ENCODER_CATCH_VARIANT(input_info.video_codec)
     update_everything_();
 
+    ui_->listWidget_args->clear();
     for (const auto &arg : initial_values.encoding_args) {
         add_argument_slot_output_();
         ui_->listWidget_args->item(ui_->listWidget_args->count() - 1)->setText(arg);
     }
+    ui_->listWidget_input_args->clear();
     for (const auto &arg : initial_values.input_file_args) {
         add_argument_slot_input_();
         ui_->listWidget_input_args->item(ui_->listWidget_input_args->count() - 1)->setText(arg);

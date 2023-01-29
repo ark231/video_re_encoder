@@ -57,6 +57,12 @@ if(NOT ${fmt_FOUND})
     )
 endif()
 
+CPMAddPackage(
+    NAME toml11
+    GITHUB_REPOSITORY ToruNiina/toml11
+    GIT_TAG v3.7.1
+)
+
 add_subdirectory(3rdparty)
 
 target_link_libraries(video_re_encoder PRIVATE
@@ -64,6 +70,7 @@ target_link_libraries(video_re_encoder PRIVATE
     Qt6::MultimediaWidgets
     Qt6::Gui
     fmt
+    toml11
 
     qt_collapsible_section
 )

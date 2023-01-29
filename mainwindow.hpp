@@ -11,6 +11,7 @@
 #include <QUrl>
 #include <chrono>
 #include <optional>
+#include <toml.hpp>
 #include <tuple>
 
 #include "processwidget.hpp"
@@ -45,6 +46,7 @@ class MainWindow : public QMainWindow {
     Ui::MainWindow *ui_;
     ProcessWidget *process_ = nullptr;  // deleted on close
     QSettings *settings_ = nullptr;
+    toml::value presets_;
     concat::VideoInfo source_video_info_;
     std::chrono::duration<int, std::milli> source_length_;
     static constexpr auto NO_PLUGIN = "do not use any plugins";
@@ -60,6 +62,10 @@ class MainWindow : public QMainWindow {
     QStringList search_savefile_name_plugins_();
     QStringList savefile_name_plugins_();
     int savefile_name_plugin_index_();
+
+    QString current_preset_;
+    concat::VideoInfo cache_;
+    void change_preset_(QString name);
 
     // steps for opening file
     void create_savefile_name_();

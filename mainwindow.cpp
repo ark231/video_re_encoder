@@ -99,10 +99,30 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui_(new Ui::MainW
     connect(ui_->actioneffective_period_of_cache, &QAction::triggered, this,
             &MainWindow::update_effective_period_of_cache_);
     connect(ui_->actiondefault_video_info, &QAction::triggered, this, &MainWindow::edit_default_video_info_);
+    connect(ui_->comboBox_preset, &QComboBox::currentTextChanged, this, &MainWindow::change_preset_);
     QDir settings_dir(QApplication::applicationDirPath() + "/settings");
     if (QDir().mkpath(settings_dir.absolutePath())) {  // QDir::mkpath() returns true even when path already exists
         settings_ = new QSettings(settings_dir.filePath("settings.ini"), QSettings::IniFormat);
+        auto preset_path = settings_dir.filePath("presets.toml");
+        if (QFile::exists(preset_path)) {
+            try {
+                presets_ = toml::parse(preset_path.toStdString());
+            } catch (std::runtime_error &e) {
+                QMessageBox::warning(nullptr, tr("warning"),
+                                     tr("failed to load preset file (%1) info: \n%2").arg(preset_path).arg(e.what()));
+            }
+            for (const auto &[key, value] : presets_.as_table()) {
+                if (key == "VERSION") {
+                    continue;
+                }
+                ui_->comboBox_preset->addItem(QString::fromStdString(key));
+            }
+        }
     }
+    current_preset_ = ui_->comboBox_preset->currentText();
+    cache_ = settings_->value("default_video_info").value<concat::VideoInfo>();
+    source_video_info_ = concat::VideoInfo::create_input_info();
+    change_preset_(ui_->comboBox_preset->currentText());
 }
 
 MainWindow::~MainWindow() {
@@ -297,8 +317,10 @@ void MainWindow::register_video_info_() {
         return;
     }
     source_video_info_ = info;
-    ui_->videoInfoWidget->set_infos(settings_->value("default_video_info").value<concat::VideoInfo>(),
-                                    retrieve_input_info(info));
+    if (current_preset_ == tr("custom")) {
+        cache_ = ui_->videoInfoWidget->info();
+    }
+    change_preset_(ui_->comboBox_preset->currentText());
 }
 namespace impl_ {
 int decode_ffmpeg(QStringView, QStringView new_stderr) {
@@ -430,4 +452,25 @@ void MainWindow::select_savefile_name_plugin_() {
     if (confirmed && settings_ != nullptr) {
         settings_->setValue("savefile_name_plugin", plugin);
     }
+}
+
+void MainWindow::change_preset_(QString name) {
+    if (name == tr("custom")) {
+        ui_->videoInfoWidget->setEnabled(true);
+        ui_->videoInfoWidget->set_infos(cache_, retrieve_input_info(source_video_info_));
+    } else {
+        ui_->videoInfoWidget->setEnabled(false);
+        if (current_preset_ == tr("custom")) {
+            cache_ = ui_->videoInfoWidget->info();
+        }
+        try {
+            ui_->videoInfoWidget->set_infos(
+                concat::VideoInfo::from_toml(presets_["VERSION"].as_integer(), presets_[name.toStdString()]),
+                retrieve_input_info(source_video_info_));
+        } catch (std::exception &e) {
+            QMessageBox::warning(nullptr, tr("warning"),
+                                 tr("failed to load preset '%1' info: \n%2").arg(name).arg(e.what()));
+        }
+    }
+    current_preset_ = name;
 }
