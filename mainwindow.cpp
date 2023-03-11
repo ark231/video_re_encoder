@@ -253,7 +253,7 @@ void MainWindow::register_savefile_name_() {
     QDir source_dir{source_path_.toLocalFile()};
     source_dir.cdUp();
     ui_->lineEdit_output_dir->setText(source_dir.absolutePath());
-    ui_->lineEdit_output_filename->setText(source_path_.fileName());
+    ui_->lineEdit_output_filename->setText(default_savefile_name);
     probe_for_video_info_();
 }
 void MainWindow::probe_for_video_info_() {
